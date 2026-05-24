@@ -17,6 +17,11 @@
 /.next/
 /out/
 
+# electron build output
+/release/
+/dist/
+/release.zip
+
 # production
 /build
 

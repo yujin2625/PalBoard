@@ -128,8 +128,23 @@ export function useOwnedPals() {
     [persist],
   );
 
-  return { pals, loaded, addPal, updatePal, removePals, replaceAll };
+  /** Insert pals preserving their original ids, skipping any whose id already
+   * exists locally. Returns the number of new pals inserted. */
+  const bulkAdd = useCallback(
+    (incoming: OwnedPal[]) => {
+      const have = new Set(pals.map((p) => p.id));
+      const fresh = incoming.filter((p) => !have.has(p.id));
+      if (fresh.length === 0) return 0;
+      persist([...fresh, ...pals]);
+      return fresh.length;
+    },
+    [pals, persist],
+  );
+
+  return { pals, loaded, addPal, updatePal, removePals, replaceAll, bulkAdd };
 }
+
+const KEY_BOARDS_EXTERNAL = "palboard.boards.v1";
 
 export function exportAll(): string {
   const data = {
@@ -137,16 +152,21 @@ export function exportAll(): string {
     exportedAt: new Date().toISOString(),
     worlds: loadJSON<World[]>(KEY_WORLDS, []),
     ownedPals: loadJSON<OwnedPal[]>(KEY_PALS, []),
+    boards: loadJSON<unknown[]>(KEY_BOARDS_EXTERNAL, []),
   };
   return JSON.stringify(data, null, 2);
 }
 
-export function importAll(json: string): { worlds: number; pals: number } {
+export function importAll(
+  json: string,
+): { worlds: number; pals: number; boards: number } {
   const parsed = JSON.parse(json);
   if (!parsed || typeof parsed !== "object") throw new Error("Invalid file");
   const worlds = Array.isArray(parsed.worlds) ? parsed.worlds : [];
   const ownedPals = Array.isArray(parsed.ownedPals) ? parsed.ownedPals : [];
+  const boards = Array.isArray(parsed.boards) ? parsed.boards : [];
   if (worlds.length > 0) saveJSON(KEY_WORLDS, worlds);
   saveJSON(KEY_PALS, ownedPals);
-  return { worlds: worlds.length, pals: ownedPals.length };
+  if (boards.length > 0) saveJSON(KEY_BOARDS_EXTERNAL, boards);
+  return { worlds: worlds.length, pals: ownedPals.length, boards: boards.length };
 }

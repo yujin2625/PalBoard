@@ -195,6 +195,74 @@ body {
   transform: scale(1.1);
 }
 
+/* React Flow: rely on the standard "topmost element wins" rule for cursor
+ * and pointer events. We just widen the invisible hit zones so the topmost
+ * element actually covers the visible target.
+ *
+ * Layer order (highest first):
+ *   handles > edges > nodes > pane
+ * Each is given a clear pointer-events area; we do NOT force a cursor on
+ * lower layers, so the cursor follows whichever element is on top under
+ * the pointer. */
+
+/* Handles: extend hit area beyond the visible dot. */
+.react-flow__handle {
+  position: relative;
+}
+.react-flow__handle::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+}
+
+/* Edges: extend the invisible interaction stroke so it reliably covers
+ * (and stays above) the pane underneath. The visible path stays thin. */
+.react-flow__edge-interaction {
+  stroke-width: 36 !important;
+}
+
+/* Each edge lives in its own <svg> inside .react-flow__edges; by default
+ * they ship with inline z-index: 0 which puts them at the bottom of the
+ * stacking context. Bump them above the pane and assign incremental order
+ * so edges drawn later always stack over earlier ones. */
+.react-flow__edges svg {
+  z-index: 1 !important;
+}
+.react-flow__edges svg:nth-of-type(1)  { z-index: 1  !important; }
+.react-flow__edges svg:nth-of-type(2)  { z-index: 2  !important; }
+.react-flow__edges svg:nth-of-type(3)  { z-index: 3  !important; }
+.react-flow__edges svg:nth-of-type(4)  { z-index: 4  !important; }
+.react-flow__edges svg:nth-of-type(5)  { z-index: 5  !important; }
+.react-flow__edges svg:nth-of-type(6)  { z-index: 6  !important; }
+.react-flow__edges svg:nth-of-type(7)  { z-index: 7  !important; }
+.react-flow__edges svg:nth-of-type(8)  { z-index: 8  !important; }
+.react-flow__edges svg:nth-of-type(9)  { z-index: 9  !important; }
+.react-flow__edges svg:nth-of-type(10) { z-index: 10 !important; }
+.react-flow__edges svg:nth-of-type(11) { z-index: 11 !important; }
+.react-flow__edges svg:nth-of-type(12) { z-index: 12 !important; }
+.react-flow__edges svg:nth-of-type(13) { z-index: 13 !important; }
+.react-flow__edges svg:nth-of-type(14) { z-index: 14 !important; }
+.react-flow__edges svg:nth-of-type(15) { z-index: 15 !important; }
+.react-flow__edges svg:nth-of-type(16) { z-index: 16 !important; }
+.react-flow__edges svg:nth-of-type(17) { z-index: 17 !important; }
+.react-flow__edges svg:nth-of-type(18) { z-index: 18 !important; }
+.react-flow__edges svg:nth-of-type(19) { z-index: 19 !important; }
+.react-flow__edges svg:nth-of-type(20) { z-index: 20 !important; }
+
+/* Nodes always sit above edges so a connection line never visually covers a
+ * pal card and never wins the hit-test underneath one. */
+.react-flow__nodes {
+  z-index: 100 !important;
+}
+.react-flow__node {
+  z-index: 100 !important;
+}
+.react-flow__node.selected,
+.react-flow__node.dragging {
+  z-index: 101 !important;
+}
+
 /* Floating Chillet wave animation for headline accents */
 @keyframes bob {
   0%, 100% { transform: translateY(0) rotate(-3deg); }

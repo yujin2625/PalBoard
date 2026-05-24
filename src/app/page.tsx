@@ -16,10 +16,13 @@ import {
   useWorlds,
 } from "@/lib/storage";
 import type { Gender, OwnedPal } from "@/lib/types";
+import { palName, useLang, useT } from "@/lib/i18n";
 
 const GENDERS: Gender[] = ["Male", "Female", "Unknown"];
 
 export default function OwnedPalsPage() {
+  const t = useT();
+  const { lang } = useLang();
   const { worlds, activeId, setActive, addWorld, renameWorld, removeWorld } = useWorlds();
   const { pals, loaded, addPal, updatePal, removePals } = useOwnedPals();
 
@@ -47,11 +50,11 @@ export default function OwnedPalsPage() {
     return [...matched].sort((a, b) => {
       if (sortKey === "createdAt") return b.createdAt - a.createdAt;
       if (sortKey === "level") return (b.level ?? 0) - (a.level ?? 0);
-      const an = palByKey(a.palKey)?.nameKo ?? "";
-      const bn = palByKey(b.palKey)?.nameKo ?? "";
+      const an = palName(palByKey(a.palKey), lang);
+      const bn = palName(palByKey(b.palKey), lang);
       return an.localeCompare(bn);
     });
-  }, [pals, activeId, filter, sortKey]);
+  }, [pals, activeId, filter, sortKey, lang]);
 
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -68,14 +71,14 @@ export default function OwnedPalsPage() {
     const text = await file.text();
     try {
       const res = importAll(text);
-      alert(`불러오기 완료: 월드 ${res.worlds}, 팰 ${res.pals}`);
+      alert(t("home.import.success", { worlds: res.worlds, pals: res.pals, boards: res.boards }));
       window.location.reload();
     } catch {
-      alert("파일 형식이 올바르지 않습니다.");
+      alert(t("home.import.error"));
     }
   }
 
-  if (!loaded) return <div className="text-chillet-700/70 dark:text-chillet-200/60">불러오는 중…</div>;
+  if (!loaded) return <div className="text-chillet-700/70 dark:text-chillet-200/60">{t("common.loading")}</div>;
 
   return (
     <div className="space-y-6">
@@ -92,18 +95,18 @@ export default function OwnedPalsPage() {
         <div className="absolute -left-10 -top-10 w-40 h-40 rounded-full bg-mint-300/20 blur-3xl" />
         <div className="relative max-w-xl">
           <div className="text-xs uppercase tracking-widest text-chillet-600 dark:text-chillet-300 mb-1">
-            팰월드 보유 팰 관리
+            {t("home.kicker")}
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-chillet-900 dark:text-chillet-50">
-            나만의 팰 보드
+            {t("home.title")}
           </h1>
           <p className="mt-2 text-sm text-chillet-700/80 dark:text-chillet-200/70">
-            월드별로 팰을 등록하고, 교배 시뮬과 경로 찾기를 함께 활용하세요. 모든 데이터는 브라우저에만 저장됩니다.
+            {t("home.subtitle")}
           </p>
           <div className="mt-3 flex items-center gap-4 text-xs text-chillet-700/70 dark:text-chillet-200/60">
-            <span>🥚 {pals.length}마리 등록됨</span>
+            <span>{t("home.stats.registered", { n: pals.length })}</span>
             <span>·</span>
-            <span>🌐 {worlds.length}개 월드</span>
+            <span>{t("home.stats.worlds", { n: worlds.length })}</span>
           </div>
         </div>
       </section>
@@ -124,45 +127,45 @@ export default function OwnedPalsPage() {
         ))}
         <button
           onClick={() => {
-            const name = prompt("새 월드 이름:");
+            const name = prompt(t("home.world.promptNew"));
             if (name) addWorld(name);
           }}
           className="px-2 py-1.5 rounded-md text-sm border border-dashed border-chillet-400/70 hover:bg-chillet-100 dark:hover:bg-chillet-800/50"
         >
-          + 월드
+          {t("home.world.add")}
         </button>
         <button
           onClick={() => {
             const cur = worlds.find((w) => w.id === activeId);
             if (!cur) return;
-            const name = prompt("월드 이름 변경:", cur.name);
+            const name = prompt(t("home.world.promptRename"), cur.name);
             if (name) renameWorld(cur.id, name);
           }}
           className="text-xs text-chillet-700/70 dark:text-chillet-200/60 underline ml-2"
         >
-          이름 변경
+          {t("common.rename")}
         </button>
         <button
           onClick={() => {
-            if (worlds.length <= 1) return alert("월드는 최소 1개 필요");
-            if (confirm("이 월드를 삭제하시겠습니까?")) removeWorld(activeId);
+            if (worlds.length <= 1) return alert(t("home.world.deleteLast"));
+            if (confirm(t("home.world.confirmDelete"))) removeWorld(activeId);
           }}
           className="text-xs text-red-600 underline"
         >
-          월드 삭제
+          {t("home.world.delete")}
         </button>
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={handleExport}
             className="px-2 py-1.5 text-xs rounded-md border border-chillet-200 dark:border-chillet-700/70 hover:bg-chillet-100 dark:hover:bg-chillet-800/50"
           >
-            내보내기
+            {t("common.export")}
           </button>
           <button
             onClick={() => fileInput.current?.click()}
             className="px-2 py-1.5 text-xs rounded-md border border-chillet-200 dark:border-chillet-700/70 hover:bg-chillet-100 dark:hover:bg-chillet-800/50"
           >
-            불러오기
+            {t("common.import")}
           </button>
           <input
             ref={fileInput}
@@ -182,37 +185,37 @@ export default function OwnedPalsPage() {
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="이름/별명/패시브 검색"
+          placeholder={t("home.filter.placeholder")}
           className="rounded-md border border-chillet-200 dark:border-chillet-700/70 bg-white dark:bg-chillet-900 px-3 py-1.5 text-sm"
         />
         <Select<"createdAt" | "name" | "level">
-          className="w-32"
+          className="w-36"
           size="sm"
           value={sortKey}
           onChange={setSortKey}
           options={[
-            { value: "createdAt", label: "등록순" },
-            { value: "name", label: "이름순" },
-            { value: "level", label: "레벨순" },
+            { value: "createdAt", label: t("home.sort.registered") },
+            { value: "name", label: t("home.sort.name") },
+            { value: "level", label: t("home.sort.level") },
           ]}
         />
         <button
           onClick={() => setAdding(true)}
           className="ml-auto px-3 py-1.5 rounded-md text-sm bg-chillet-500 text-white hover:bg-chillet-600"
         >
-          + 팰 등록
+          {t("home.add")}
         </button>
         {selected.size > 0 && (
           <button
             onClick={() => {
-              if (confirm(`선택한 ${selected.size}마리를 삭제하시겠습니까?`)) {
+              if (confirm(t("home.bulkDelete.confirm", { n: selected.size }))) {
                 removePals([...selected]);
                 setSelected(new Set());
               }
             }}
             className="px-3 py-1.5 rounded-md text-sm bg-red-600 text-white hover:bg-red-700"
           >
-            선택 삭제 ({selected.size})
+            {t("home.bulkDelete", { n: selected.size })}
           </button>
         )}
       </div>
@@ -256,12 +259,12 @@ export default function OwnedPalsPage() {
                   }}
                 />
               </th>
-              <th className="text-left px-3 py-2">팰</th>
-              <th className="text-left px-3 py-2">별명</th>
-              <th className="text-left px-3 py-2">성별</th>
-              <th className="text-left px-3 py-2">레벨</th>
-              <th className="text-left px-3 py-2">패시브</th>
-              <th className="text-left px-3 py-2">IVs (H/A/D)</th>
+              <th className="text-left px-3 py-2">{t("home.col.pal")}</th>
+              <th className="text-left px-3 py-2">{t("home.col.nickname")}</th>
+              <th className="text-left px-3 py-2">{t("home.col.gender")}</th>
+              <th className="text-left px-3 py-2">{t("home.col.level")}</th>
+              <th className="text-left px-3 py-2">{t("home.col.passives")}</th>
+              <th className="text-left px-3 py-2">{t("home.col.ivs")}</th>
               <th className="w-16" />
             </tr>
           </thead>
@@ -269,8 +272,7 @@ export default function OwnedPalsPage() {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={8} className="text-center py-10 text-chillet-700/70 dark:text-chillet-200/60">
-                  등록된 팰이 없습니다. 우측의{" "}
-                  <span className="font-medium">+ 팰 등록</span> 버튼으로 추가하세요.
+                  {t("home.empty")}
                 </td>
               </tr>
             )}
@@ -301,10 +303,10 @@ export default function OwnedPalsPage() {
                         <div className="min-w-0">
                           <div className="truncate">
                             <span className="text-chillet-700/70 dark:text-chillet-200/60 mr-1">{palDexLabel(pal)}</span>
-                            {pal.nameKo}
+                            {palName(pal, lang)}
                           </div>
                           <div className="text-xs text-chillet-500/60 dark:text-chillet-300/40 truncate">
-                            {pal.name}
+                            {lang === "ko" ? pal.name : pal.nameKo}
                           </div>
                         </div>
                         <PalInfoLink pal={pal} />
@@ -313,11 +315,15 @@ export default function OwnedPalsPage() {
                       <span className="text-red-500">?</span>
                     )}
                   </td>
-                  <td className="px-3 py-2">{op.nickname || "-"}</td>
+                  <td className="px-3 py-2">{op.nickname || t("common.none")}</td>
                   <td className="px-3 py-2">
-                    {op.gender === "Male" ? "♂" : op.gender === "Female" ? "♀" : "?"}
+                    {op.gender === "Male"
+                      ? t("common.short.male")
+                      : op.gender === "Female"
+                        ? t("common.short.female")
+                        : t("common.short.unknown")}
                   </td>
-                  <td className="px-3 py-2">{op.level ?? "-"}</td>
+                  <td className="px-3 py-2">{op.level ?? t("common.none")}</td>
                   <td className="px-3 py-2">
                     {op.passives.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
@@ -326,7 +332,7 @@ export default function OwnedPalsPage() {
                         ))}
                       </div>
                     ) : (
-                      <span className="text-xs text-chillet-700/70 dark:text-chillet-200/60">-</span>
+                      <span className="text-xs text-chillet-700/70 dark:text-chillet-200/60">{t("common.none")}</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-xs">
@@ -337,15 +343,15 @@ export default function OwnedPalsPage() {
                       className="text-xs text-chillet-700 dark:text-chillet-200 hover:text-chillet-600 dark:hover:text-chillet-100 mr-2"
                       onClick={() => setEditingId(op.id)}
                     >
-                      수정
+                      {t("common.edit")}
                     </button>
                     <button
                       className="text-xs text-chillet-700/70 dark:text-chillet-200/60 hover:text-berry-500 dark:hover:text-berry-300"
                       onClick={() => {
-                        if (confirm("삭제하시겠습니까?")) removePals([op.id]);
+                        if (confirm(t("home.delete.confirm"))) removePals([op.id]);
                       }}
                     >
-                      삭제
+                      {t("common.delete")}
                     </button>
                   </td>
                 </tr>
@@ -371,6 +377,7 @@ function PalForm({
   onSubmit: (p: Omit<OwnedPal, "id" | "createdAt">) => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   const [palKey, setPalKey] = useState<string | undefined>(initial?.palKey);
   const [nickname, setNickname] = useState(initial?.nickname ?? "");
   const [gender, setGender] = useState<Gender>(initial?.gender ?? "Unknown");
@@ -380,25 +387,31 @@ function PalForm({
   const [ivAtk, setIvAtk] = useState(initial?.ivAtk ? String(initial.ivAtk) : "");
   const [ivDef, setIvDef] = useState(initial?.ivDef ? String(initial.ivDef) : "");
 
+  const ivFields: [string, string, (v: string) => void][] = [
+    [t("form.field.ivHp"), ivHp, setIvHp],
+    [t("form.field.ivAtk"), ivAtk, setIvAtk],
+    [t("form.field.ivDef"), ivDef, setIvDef],
+  ];
+
   return (
     <div className="border border-chillet-200/70 dark:border-chillet-800/60 rounded-lg p-4 bg-white dark:bg-chillet-900 space-y-3">
       <div className="flex items-center justify-between">
         <div className="text-sm font-medium">
-          {mode === "add" ? "새 팰 등록" : "팰 수정"}
+          {mode === "add" ? t("form.add.title") : t("form.edit.title")}
         </div>
         {mode === "edit" && initial && (
           <div className="text-xs text-chillet-700/70 dark:text-chillet-200/60">
-            등록일: {new Date(initial.createdAt).toLocaleString()}
+            {t("form.created")}: {new Date(initial.createdAt).toLocaleString()}
           </div>
         )}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">팰 종류 *</label>
+          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">{t("form.field.pal")}</label>
           <PalPicker value={palKey} onChange={setPalKey} />
         </div>
         <div>
-          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">별명</label>
+          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">{t("form.field.nickname")}</label>
           <input
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
@@ -406,18 +419,23 @@ function PalForm({
           />
         </div>
         <div>
-          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">성별</label>
+          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">{t("form.field.gender")}</label>
           <Select<Gender>
             value={gender}
             onChange={setGender}
             options={GENDERS.map((g) => ({
               value: g,
-              label: g === "Male" ? "♂ 수컷" : g === "Female" ? "♀ 암컷" : "? 미상",
+              label:
+                g === "Male"
+                  ? t("common.male")
+                  : g === "Female"
+                    ? t("common.female")
+                    : t("common.unknown"),
             }))}
           />
         </div>
         <div>
-          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">레벨</label>
+          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">{t("form.field.level")}</label>
           <input
             type="number"
             value={level}
@@ -426,15 +444,11 @@ function PalForm({
           />
         </div>
         <div className="sm:col-span-2">
-          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">패시브 (최대 4개)</label>
+          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">{t("form.field.passives")}</label>
           <PassivePicker value={passives} onChange={setPassives} max={4} />
         </div>
         <div className="grid grid-cols-3 gap-2 sm:col-span-2">
-          {([
-            ["HP IV", ivHp, setIvHp],
-            ["ATK IV", ivAtk, setIvAtk],
-            ["DEF IV", ivDef, setIvDef],
-          ] as const).map(([label, val, set]) => (
+          {ivFields.map(([label, val, set]) => (
             <div key={label}>
               <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">{label}</label>
               <input
@@ -452,11 +466,11 @@ function PalForm({
           onClick={onCancel}
           className="px-3 py-1.5 rounded-md text-sm border border-chillet-200 dark:border-chillet-700/70"
         >
-          취소
+          {t("common.cancel")}
         </button>
         <button
           onClick={() => {
-            if (!palKey) return alert("팰을 선택해 주세요.");
+            if (!palKey) return alert(t("form.alert.pickPal"));
             onSubmit({
               palKey,
               nickname: nickname || undefined,
@@ -471,7 +485,7 @@ function PalForm({
           }}
           className="px-3 py-1.5 rounded-md text-sm bg-chillet-500 text-white hover:bg-chillet-600"
         >
-          {mode === "add" ? "등록" : "저장"}
+          {mode === "add" ? t("common.register") : t("common.save")}
         </button>
       </div>
     </div>

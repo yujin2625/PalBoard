@@ -2,6 +2,8 @@ import passivesJson from "@/data/passives.json";
 
 export interface PassiveSkill {
   name: string;
+  /** Korean localization (paldb.cc); falls back to `name` if unavailable. */
+  nameKo: string;
   rank: number; // -3..-1 negative tier, 1..4 positive tier
   description: string;
 }

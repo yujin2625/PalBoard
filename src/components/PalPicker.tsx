@@ -5,6 +5,7 @@ import { PALS, palDexLabel } from "@/lib/pal-data";
 import type { Pal } from "@/lib/types";
 import { PalAvatar } from "./PalAvatar";
 import { PalInfoLink } from "./PalInfoLink";
+import { palName, useLang, useT } from "@/lib/i18n";
 
 interface Props {
   value?: string;
@@ -13,7 +14,9 @@ interface Props {
   excludeVariants?: boolean;
 }
 
-export function PalPicker({ value, onChange, placeholder = "팰 검색…", excludeVariants }: Props) {
+export function PalPicker({ value, onChange, placeholder, excludeVariants }: Props) {
+  const { lang } = useLang();
+  const t = useT();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
@@ -28,21 +31,23 @@ export function PalPicker({ value, onChange, placeholder = "팰 검색…", excl
   }, [open]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     let list: readonly Pal[] = PALS;
     if (excludeVariants) list = list.filter((p) => !p.variant);
     if (!q) return list;
+    const ql = q.toLowerCase();
     return list.filter(
       (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.nameKo.includes(query) ||
-        p.internal.toLowerCase().includes(q) ||
+        p.name.toLowerCase().includes(ql) ||
+        p.nameKo.includes(q) ||
+        p.internal.toLowerCase().includes(ql) ||
         String(p.dexNo) === q ||
-        (p.paldeckId ?? "").toLowerCase().includes(q),
+        (p.paldeckId ?? "").toLowerCase().includes(ql),
     );
   }, [query, excludeVariants]);
 
   const selected = value ? PALS.find((p) => p.key === value) : null;
+  const triggerPlaceholder = placeholder ?? t("picker.pal.placeholder");
 
   return (
     <div ref={wrap} className="relative">
@@ -56,14 +61,16 @@ export function PalPicker({ value, onChange, placeholder = "팰 검색…", excl
             <PalAvatar pal={selected} size={28} />
             <span className="truncate">
               <span className="text-chillet-700/70 dark:text-chillet-200/60 mr-1.5">{palDexLabel(selected)}</span>
-              {selected.nameKo}
-              <span className="text-chillet-500/60 dark:text-chillet-300/40 text-xs ml-1">({selected.name})</span>
-              {selected.variant && <span className="ml-1 text-berry-500 text-xs">variant</span>}
+              {palName(selected, lang)}
+              {lang === "ko" && (
+                <span className="text-chillet-500/60 dark:text-chillet-300/40 text-xs ml-1">({selected.name})</span>
+              )}
+              {selected.variant && <span className="ml-1 text-berry-500 text-xs">{t("common.variant")}</span>}
             </span>
             <PalInfoLink pal={selected} className="ml-auto" />
           </span>
         ) : (
-          <span className="text-chillet-500/60 dark:text-chillet-300/40">{placeholder}</span>
+          <span className="text-chillet-500/60 dark:text-chillet-300/40">{triggerPlaceholder}</span>
         )}
         <span
           aria-hidden
@@ -78,13 +85,13 @@ export function PalPicker({ value, onChange, placeholder = "팰 검색…", excl
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="이름/넘버로 검색"
+            placeholder={t("picker.pal.searchPlaceholder")}
             className="w-full px-3 py-2 text-sm bg-white dark:bg-chillet-900 border-b border-chillet-200/70 dark:border-chillet-800/60 outline-none"
           />
           <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-chillet-500/70 dark:text-chillet-300/50 border-b border-chillet-100 dark:border-chillet-800/40">
             {filtered.length === PALS.length
-              ? `전체 ${PALS.length}마리`
-              : `${filtered.length}/${PALS.length}마리`}
+              ? t("picker.pal.totalAll", { n: PALS.length })
+              : t("picker.pal.totalPart", { shown: filtered.length, total: PALS.length })}
           </div>
           <ul className="max-h-72 overflow-y-auto py-1">
             {filtered.map((p) => (
@@ -101,16 +108,18 @@ export function PalPicker({ value, onChange, placeholder = "팰 검색…", excl
                   <PalAvatar pal={p} size={28} />
                   <span className="truncate flex-1 min-w-0">
                     <span className="text-chillet-700/70 dark:text-chillet-200/60 mr-1.5">{palDexLabel(p)}</span>
-                    {p.nameKo}
-                    <span className="text-chillet-500/60 dark:text-chillet-300/40 text-xs ml-1">({p.name})</span>
-                    {p.variant && <span className="ml-1 text-berry-500 text-xs">variant</span>}
+                    {palName(p, lang)}
+                    {lang === "ko" && (
+                      <span className="text-chillet-500/60 dark:text-chillet-300/40 text-xs ml-1">({p.name})</span>
+                    )}
+                    {p.variant && <span className="ml-1 text-berry-500 text-xs">{t("common.variant")}</span>}
                   </span>
                   <span className="text-chillet-500/60 dark:text-chillet-300/40 text-xs shrink-0">BP {p.breedingPower}</span>
                 </button>
               </li>
             ))}
             {filtered.length === 0 && (
-              <li className="px-3 py-3 text-sm text-chillet-700/70 dark:text-chillet-200/60">결과 없음</li>
+              <li className="px-3 py-3 text-sm text-chillet-700/70 dark:text-chillet-200/60">{t("common.results.none")}</li>
             )}
           </ul>
         </div>

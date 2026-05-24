@@ -33,6 +33,23 @@ curl -L https://raw.githubusercontent.com/tylercamp/palcalc/master/PalCalc.Model
 node scripts/build-data.mjs
 ```
 
+## 데스크탑 앱 패키징 (Electron)
+
+웹 배포 대신 받는 사람이 더블클릭으로 실행할 수 있게:
+
+```
+npm run electron:dev     # 개발 중 데스크탑 창으로 띄워 확인
+npm run dist:win         # release/ 에 Windows 설치 EXE + 포터블 EXE
+npm run dist:linux       # release/ 에 Linux AppImage
+npm run dist:mac         # macOS .dmg (Mac에서만 빌드 가능)
+```
+
+산출물 (Windows 예시):
+- `release/PalBoard Setup 0.1.0.exe` — 설치형 (NSIS, ~183 MB)
+- `release/PalBoard 0.1.0.exe` — 포터블 (압축 풀지 않고 더블클릭, ~183 MB)
+
+받는 사람은 OS에 맞는 파일을 받아서 실행하면 끝. Node.js 같은 추가 설치 불필요.
+
 ## 로드맵
 
 - [ ] 4번 — 교배 트리 화이트보드 (React Flow로 드래그/노드 연결)

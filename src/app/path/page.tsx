@@ -9,6 +9,7 @@ import { useOwnedPals } from "@/lib/storage";
 import type { Pal, PalKey } from "@/lib/types";
 import { PalAvatar } from "@/components/PalAvatar";
 import { PalInfoLink } from "@/components/PalInfoLink";
+import { palName, useLang, useT } from "@/lib/i18n";
 
 type Result = {
   path: PathStep[] | null;
@@ -17,6 +18,8 @@ type Result = {
 } | null;
 
 export default function PathPage() {
+  const t = useT();
+  const { lang } = useLang();
   const { pals, loaded } = useOwnedPals();
   const [target, setTarget] = useState<string | undefined>();
   const [maxDepth, setMaxDepth] = useState(3);
@@ -34,8 +37,6 @@ export default function PathPage() {
       setResult(null);
       return;
     }
-    // Yield to the browser so the loading state can paint before the heavy
-    // compute monopolises the main thread.
     setResult(null);
     const handle = setTimeout(() => {
       startTransition(() => {
@@ -59,42 +60,44 @@ export default function PathPage() {
 
   const computing = isPending || (target !== undefined && result === null);
 
-  if (!loaded) return <div className="text-chillet-700/70 dark:text-chillet-200/60">불러오는 중…</div>;
+  if (!loaded) return <div className="text-chillet-700/70 dark:text-chillet-200/60">{t("common.loading")}</div>;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">교배 경로 찾기</h1>
+      <h1 className="text-xl font-semibold">{t("path.title")}</h1>
       <p className="text-sm text-chillet-700/70 dark:text-chillet-200/60">
-        등록된 모든 보유 팰의 종을 기준으로 최단 경로를 계산합니다. 깊이 {maxDepth}까지 탐색합니다.
+        {t("path.subtitle", { n: maxDepth })}
       </p>
 
       <div className="flex items-end gap-3 flex-wrap">
         <div className="w-72">
-          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">목표 팰</label>
-          <PalPicker value={target} onChange={setTarget} placeholder="목표 팰 선택" />
+          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">{t("path.target")}</label>
+          <PalPicker value={target} onChange={setTarget} />
         </div>
         <div>
-          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">최대 깊이</label>
+          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">{t("path.maxDepth")}</label>
           <Select<number>
             className="w-28"
             size="sm"
             value={maxDepth}
             onChange={setMaxDepth}
-            options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: `${n} 스텝` }))}
+            options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: t("path.step.suffix", { n }) }))}
           />
         </div>
-        <div className="text-xs text-chillet-700/70 dark:text-chillet-200/60">보유 종 수: {ownedKeys.size}종</div>
+        <div className="text-xs text-chillet-700/70 dark:text-chillet-200/60">
+          {t("path.ownedCount", { n: ownedKeys.size })}
+        </div>
       </div>
 
       {target && computing && (
         <div className="rounded-lg border border-chillet-200/70 dark:border-chillet-800/60 bg-white dark:bg-chillet-900 p-6 flex items-center gap-3">
           <Spinner />
           <div>
-            <div className="text-sm font-medium">계산 중…</div>
+            <div className="text-sm font-medium">{t("path.computing")}</div>
             <div className="text-xs text-chillet-700/70 dark:text-chillet-200/60">
               {ownedKeys.size === 0
-                ? "보유 팰이 없어 모든 종(227종)에 대해 추천 경로를 탐색합니다. 잠시만 기다려 주세요."
-                : `보유 ${ownedKeys.size}종을 기준으로 깊이 ${maxDepth}까지 BFS 탐색 중`}
+                ? t("path.computing.empty")
+                : t("path.computing.normal", { n: ownedKeys.size, d: maxDepth })}
             </div>
           </div>
         </div>
@@ -104,15 +107,15 @@ export default function PathPage() {
         <div className="space-y-4">
           {result.path === null ? (
             <div className="rounded-lg border border-berry-300 bg-berry-300/15 dark:bg-berry-500/15 dark:border-berry-500/40 p-4 text-sm">
-              {maxDepth} 스텝 이내로 만들 수 없습니다. 깊이를 늘리거나 아래 추천 팰을 잡아 보세요.
+              {t("path.unreachable", { n: maxDepth })}
             </div>
           ) : result.path.length === 0 ? (
             <div className="rounded-lg border border-mint-300 bg-mint-300/15 dark:bg-mint-700/20 dark:border-mint-700/60 p-4 text-sm">
-              이미 보유 중입니다.
+              {t("path.alreadyOwn")}
             </div>
           ) : (
             <div className="rounded-lg border border-chillet-200/70 dark:border-chillet-800/60 bg-white dark:bg-chillet-900 p-4">
-              <div className="text-sm font-medium mb-3">{result.path.length} 스텝 경로</div>
+              <div className="text-sm font-medium mb-3">{t("path.stepHeader", { n: result.path.length })}</div>
               <ol className="space-y-2">
                 {result.path.map((s, i) => (
                   <li
@@ -121,13 +124,13 @@ export default function PathPage() {
                   >
                     <span className="text-chillet-700/70 dark:text-chillet-200/60 w-6">{i + 1}.</span>
                     <PalAvatar pal={s.parents[0]} size={24} />
-                    <span className="text-chillet-800 dark:text-chillet-100">{s.parents[0].nameKo}</span>
+                    <span className="text-chillet-800 dark:text-chillet-100">{palName(s.parents[0], lang)}</span>
                     <span className="text-chillet-500/60 dark:text-chillet-300/40">×</span>
                     <PalAvatar pal={s.parents[1]} size={24} />
-                    <span className="text-chillet-800 dark:text-chillet-100">{s.parents[1].nameKo}</span>
+                    <span className="text-chillet-800 dark:text-chillet-100">{palName(s.parents[1], lang)}</span>
                     <span className="text-chillet-500/60 dark:text-chillet-300/40 mx-1">→</span>
                     <PalAvatar pal={s.child} size={24} />
-                    <span className="font-medium">{s.child.nameKo}</span>
+                    <span className="font-medium">{palName(s.child, lang)}</span>
                     <PalInfoLink pal={s.child} className="ml-1" />
                   </li>
                 ))}
@@ -137,9 +140,7 @@ export default function PathPage() {
 
           {result.unlockSuggestions.length > 0 && (
             <div className="rounded-lg border border-chillet-200/70 dark:border-chillet-800/60 bg-white dark:bg-chillet-900 p-4">
-              <div className="text-sm font-medium mb-2">
-                필요한 추가 팰 (잡으면 {maxDepth} 스텝 내 달성 가능)
-              </div>
+              <div className="text-sm font-medium mb-2">{t("path.unlock.title", { n: maxDepth })}</div>
               <ul className="flex flex-wrap gap-2 text-sm">
                 {result.unlockSuggestions.map((p) => (
                   <li
@@ -147,7 +148,7 @@ export default function PathPage() {
                     className="px-2 py-1 rounded-md bg-chillet-50 dark:bg-chillet-800/40 flex items-center gap-1.5"
                   >
                     <PalAvatar pal={p} size={20} />
-                    {palDexLabel(p)} {p.nameKo}
+                    {palDexLabel(p)} {palName(p, lang)}
                     <PalInfoLink pal={p} />
                   </li>
                 ))}
@@ -157,7 +158,7 @@ export default function PathPage() {
 
           {result.easierSuggestions.length > 0 && (
             <div className="rounded-lg border border-chillet-200/70 dark:border-chillet-800/60 bg-white dark:bg-chillet-900 p-4">
-              <div className="text-sm font-medium mb-2">추가로 잡으면 경로가 더 짧아지는 팰</div>
+              <div className="text-sm font-medium mb-2">{t("path.easier.title")}</div>
               <ul className="flex flex-wrap gap-2 text-sm">
                 {result.easierSuggestions.map((p) => (
                   <li
@@ -165,7 +166,7 @@ export default function PathPage() {
                     className="px-2 py-1 rounded-md bg-chillet-100/60 dark:bg-chillet-800/40 border border-chillet-300/60 dark:border-chillet-700/60 flex items-center gap-1.5"
                   >
                     <PalAvatar pal={p} size={20} />
-                    {palDexLabel(p)} {p.nameKo}
+                    {palDexLabel(p)} {palName(p, lang)}
                     <PalInfoLink pal={p} />
                   </li>
                 ))}

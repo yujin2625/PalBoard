@@ -1,0 +1,436 @@
+"use client";
+
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import type { Pal } from "./types";
+import type { PassiveSkill } from "./passives";
+
+export type Lang = "ko" | "en";
+
+const STORE_KEY = "palboard.lang.v1";
+
+interface LangCtx {
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  ready: boolean;
+}
+
+const Ctx = createContext<LangCtx>({ lang: "ko", setLang: () => {}, ready: false });
+
+export function LangProvider({ children }: { children: ReactNode }) {
+  const [lang, setLangState] = useState<Lang>("ko");
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(STORE_KEY) as Lang | null;
+      if (stored === "ko" || stored === "en") setLangState(stored);
+    } catch {}
+    setReady(true);
+  }, []);
+
+  const setLang = useCallback((l: Lang) => {
+    setLangState(l);
+    try {
+      window.localStorage.setItem(STORE_KEY, l);
+    } catch {}
+  }, []);
+
+  return <Ctx.Provider value={{ lang, setLang, ready }}>{children}</Ctx.Provider>;
+}
+
+export function useLang(): LangCtx {
+  return useContext(Ctx);
+}
+
+export function palName(pal: Pal | null | undefined, lang: Lang): string {
+  if (!pal) return "";
+  return lang === "ko" ? pal.nameKo : pal.name;
+}
+
+export function passiveName(p: PassiveSkill | null | undefined, lang: Lang, fallback?: string): string {
+  if (!p) return fallback ?? "";
+  return lang === "ko" ? p.nameKo : p.name;
+}
+
+// ---- Dictionary ----------------------------------------------------------
+
+type Dict = Record<string, string>;
+const dict: Record<Lang, Dict> = {
+  ko: {
+    "nav.owned": "보유 팰",
+    "nav.sim": "교배 시뮬",
+    "nav.path": "경로 찾기",
+    "nav.board": "화이트보드",
+    "nav.info": "유전 정보",
+
+    "board.title": "교배 트리 화이트보드",
+    "board.subtitle": "보유 팰을 좌측에서 끌어다 우측 보드에 놓고, 두 부모를 연결해 교배 트리를 만드세요.",
+    "board.new": "+ 새 보드",
+    "board.promptNew": "새 보드 이름:",
+    "board.promptRename": "보드 이름 변경:",
+    "board.confirmDelete": "이 보드를 삭제하시겠습니까?",
+    "board.delete": "보드 삭제",
+    "board.deleteLast": "보드는 최소 1개 필요",
+    "board.empty": "보드가 비어 있습니다. 좌측에서 팰을 드래그하세요.",
+    "board.topN": "표시 패시브 수",
+    "board.paletteFilter.all": "전체 월드",
+    "board.palette.search": "이름/별명 검색",
+    "board.palette.empty": "이 월드에 보유 팰이 없습니다.",
+    "board.dragHint": "여기로 끌어 놓기",
+    "board.commit": "보유 팰로 등록",
+    "board.commit.confirm": "이 자식을 「{world}」 월드의 보유 팰로 등록할까요?",
+    "board.commit.done": "등록됐습니다.",
+    "board.commit.alreadyDone": "이미 등록된 자식 노드입니다.",
+    "board.node.unknown": "교배 불가",
+    "board.node.sameSex": "교배 불가 — 같은 성별",
+    "board.node.needTwoParents": "부모 두 마리를 연결하세요",
+    "board.node.child": "자식 (예상)",
+    "board.node.maleProb": "♂ {p}%",
+    "board.node.femaleProb": "♀ {p}%",
+    "board.node.passivesHeader": "패시브 상속 확률 (상위 {n})",
+    "board.layout": "자동 정렬",
+    "board.clear": "전체 지우기",
+    "board.clear.confirm": "이 보드의 모든 노드를 지웁니다.",
+    "board.export": "보드 내보내기",
+    "board.import": "보드 불러오기",
+    "board.import.success": "보드 1개 불러옴 (참조 팰 {p}마리 추가)",
+    "board.import.error": "보드 파일이 아닙니다.",
+    "footer.source": "데이터 출처",
+    "footer.icon": "아이콘",
+
+    "common.loading": "불러오는 중…",
+    "common.cancel": "취소",
+    "common.save": "저장",
+    "common.register": "등록",
+    "common.edit": "수정",
+    "common.delete": "삭제",
+    "common.rename": "이름 변경",
+    "common.search": "검색",
+    "common.export": "내보내기",
+    "common.import": "불러오기",
+    "common.male": "♂ 수컷",
+    "common.female": "♀ 암컷",
+    "common.unknown": "? 미상",
+    "common.short.male": "♂",
+    "common.short.female": "♀",
+    "common.short.unknown": "?",
+    "common.none": "-",
+    "common.results.none": "결과 없음",
+    "common.variant": "변종",
+    "common.openWiki": "팰 정보",
+
+    "home.kicker": "팰월드 보유 팰 관리",
+    "home.title": "나만의 팰 보드",
+    "home.subtitle": "월드별로 팰을 등록하고, 교배 시뮬과 경로 찾기를 함께 활용하세요. 모든 데이터는 브라우저에만 저장됩니다.",
+    "home.stats.registered": "🥚 {n}마리 등록됨",
+    "home.stats.worlds": "🌐 {n}개 월드",
+    "home.world.add": "+ 월드",
+    "home.world.promptNew": "새 월드 이름:",
+    "home.world.promptRename": "월드 이름 변경:",
+    "home.world.confirmDelete": "이 월드를 삭제하시겠습니까?",
+    "home.world.deleteLast": "월드는 최소 1개 필요",
+    "home.world.delete": "월드 삭제",
+    "home.filter.placeholder": "이름/별명/패시브 검색",
+    "home.sort.registered": "등록순",
+    "home.sort.name": "이름순",
+    "home.sort.level": "레벨순",
+    "home.add": "+ 팰 등록",
+    "home.bulkDelete": "선택 삭제 ({n})",
+    "home.bulkDelete.confirm": "선택한 {n}마리를 삭제하시겠습니까?",
+    "home.delete.confirm": "삭제하시겠습니까?",
+    "home.import.success": "불러오기 완료: 월드 {worlds}, 팰 {pals}, 보드 {boards}",
+    "home.import.error": "파일 형식이 올바르지 않습니다.",
+    "home.col.pal": "팰",
+    "home.col.nickname": "별명",
+    "home.col.gender": "성별",
+    "home.col.level": "레벨",
+    "home.col.passives": "패시브",
+    "home.col.ivs": "IVs (H/A/D)",
+    "home.empty": "등록된 팰이 없습니다. 우측의 + 팰 등록 버튼으로 추가하세요.",
+
+    "form.add.title": "새 팰 등록",
+    "form.edit.title": "팰 수정",
+    "form.created": "등록일",
+    "form.field.pal": "팰 종류 *",
+    "form.field.nickname": "별명",
+    "form.field.gender": "성별",
+    "form.field.level": "레벨",
+    "form.field.passives": "패시브 (최대 4개)",
+    "form.field.ivHp": "HP IV",
+    "form.field.ivAtk": "ATK IV",
+    "form.field.ivDef": "DEF IV",
+    "form.alert.pickPal": "팰을 선택해 주세요.",
+
+    "sim.title": "교배 시뮬레이션",
+    "sim.subtitle": "두 부모를 선택하면 자식 종 / 성별 확률 / 패시브 상속 확률을 계산합니다.",
+    "sim.parentA": "부모 A",
+    "sim.parentB": "부모 B",
+    "sim.result": "결과",
+    "sim.pickBoth": "두 부모를 선택하세요.",
+    "sim.male": "♂ 수컷 확률 {p}%",
+    "sim.female": "♀ 암컷 확률 {p}%",
+    "sim.bp": "BP",
+    "sim.rarity": "희귀도",
+    "sim.passive.title": "패시브 상속 확률",
+    "sim.passive.pool": "부모의 합집합 패시브 풀: {n}개",
+    "sim.passive.event": "사건",
+    "sim.passive.prob": "확률",
+    "sim.passive.exactly": "정확히 {k}개 상속",
+    "sim.passive.inheritOne": "「{name}」 상속",
+    "sim.passive.note": "위 수치는 부모 풀에서 상속받는 슬롯에 한정합니다. 별도로 추가되는 무작위 패시브는 포함하지 않으며, 「슬롯 PMF」: 1→40%, 2→30%, 3→20%, 4→10%.",
+    "sim.reverse.title": "역추적 — 어떤 부모 조합이 이 팰을 만드는가",
+    "sim.reverse.target": "목표 팰 선택",
+    "sim.reverse.count": "총 {n}개 조합으로 만들 수 있습니다.",
+    "sim.reverse.cap": "처음 200개만 표시",
+
+    "path.title": "교배 경로 찾기",
+    "path.subtitle": "등록된 모든 보유 팰의 종을 기준으로 최단 경로를 계산합니다. 깊이 {n}까지 탐색합니다.",
+    "path.target": "목표 팰",
+    "path.maxDepth": "최대 깊이",
+    "path.step.suffix": "{n} 스텝",
+    "path.ownedCount": "보유 종 수: {n}종",
+    "path.computing": "계산 중…",
+    "path.computing.empty": "보유 팰이 없어 모든 종(227종)에 대해 추천 경로를 탐색합니다. 잠시만 기다려 주세요.",
+    "path.computing.normal": "보유 {n}종을 기준으로 깊이 {d}까지 BFS 탐색 중",
+    "path.unreachable": "{n} 스텝 이내로 만들 수 없습니다. 깊이를 늘리거나 아래 추천 팰을 잡아 보세요.",
+    "path.alreadyOwn": "이미 보유 중입니다.",
+    "path.stepHeader": "{n} 스텝 경로",
+    "path.unlock.title": "필요한 추가 팰 (잡으면 {n} 스텝 내 달성 가능)",
+    "path.easier.title": "추가로 잡으면 경로가 더 짧아지는 팰",
+
+    "info.title": "팰월드 유전 시스템",
+    "info.sources.prefix": "본 자료의 출처:",
+    "info.dbVersion": "palcalc DB 버전",
+    "info.fetchedAt": "가져온 날짜",
+    "info.gameVersion": "위키 기준 게임 버전",
+    "info.s1.title": "1. 자식 종 결정",
+    "info.s1.intro": "팰마다 숨겨진 BreedingPower 값(약 10~1500)이 정해져 있고, 부모의 평균에 가장 가까운 BP를 가진 후보 팰이 자식이 됩니다. 동률일 경우 내부 인덱스가 더 낮은 쪽이 선택됩니다. 이 규칙은 대부분의 조합에 적용되지만, 다음 케이스는 고정 결과로 오버라이드됩니다:",
+    "info.s1.li1": "동종 한정 팰: 치키피, 블레이즈머트 류, 팔라디우스, 네크로무스, 프로스탈리온, 제트라곤, 벨라느와르 리베로, 미모그, 제노베이더, 제노가드, 제노로드 등 — 자기 자신과만 교배 가능.",
+    "info.s1.li2": "변종/타워 보스: 특정 부모 쌍이 변종 또는 타워 보스 팰을 만듭니다 (예: 오시러스 + 페탈리아 = 라일린, 아주로베 + 프로스트플룸 = 아주로베 크리스트).",
+    "info.s1.note": "본 앱은 palcalc의 전체 페어→자식 매핑 테이블({n}건)을 그대로 사용하므로 위 오버라이드도 정확히 반영됩니다.",
+    "info.s2.title": "2. 패시브 상속",
+    "info.s2.intro": "부모의 모든 고유 패시브가 풀(중복 제거)을 이룹니다. 자식은 다음 규칙으로 패시브를 받습니다:",
+    "info.s2.li1": "상속 슬롯 수 X: P(X=1)=40%, P(X=2)=30%, P(X=3)=20%, P(X=4)=10%",
+    "info.s2.li2": "무작위 추가 슬롯 수 Y: 동일 분포. Y > X이면 남은 슬롯에 무작위 패시브가 채워집니다.",
+    "info.s2.li3": "X > 부모 풀 크기인 경우, 풀의 모든 패시브가 상속되고 남는 슬롯은 무작위로 채워집니다.",
+    "info.s2.note": "참고로 «부모 풀에 있는 X개를 전부 상속» 확률은 풀 크기 4 → 10%, 3 → 12%, 2 → 24%, 1 → 40%.",
+    "info.s3.title": "3. 액티브 스킬 상속",
+    "info.s4.title": "4. IV / 잠재 능력치 상속",
+    "info.s5.title": "5. 부화 / 알 시간",
+    "info.s5.body": "조합된 알은 모체의 크기에 따라 결정됩니다 (S/M/L/XL). 부화 시간은 크기에 따라 다르며, 부화기 위치(차가운/뜨거운 환경)는 종에 따라 영향을 줍니다. 본 MVP는 부화 시간 정보를 포함하지 않습니다.",
+    "info.pmf.title": "요약 PMF",
+    "info.pmf.slot": "X (상속 슬롯 수)",
+    "info.pmf.rand": "Y (무작위 슬롯 수)",
+    "info.pmf.p": "P",
+
+    "picker.pal.placeholder": "팰 검색…",
+    "picker.pal.searchPlaceholder": "이름/넘버로 검색",
+    "picker.pal.totalAll": "전체 {n}마리",
+    "picker.pal.totalPart": "{shown}/{total}마리",
+    "picker.passive.placeholder": "패시브 추가…",
+    "picker.passive.searchPlaceholder": "패시브 이름/설명 검색",
+    "picker.passive.countAll": "{shown}/{total}개",
+    "picker.passive.max": "최대 {n}개",
+    "picker.passive.remove": "{name} 제거",
+  },
+  en: {
+    "nav.owned": "Owned",
+    "nav.sim": "Breeding",
+    "nav.path": "Path finder",
+    "nav.board": "Whiteboard",
+    "nav.info": "Genetics",
+
+    "board.title": "Breeding whiteboard",
+    "board.subtitle": "Drag owned pals from the left and connect two parents to build a breeding tree.",
+    "board.new": "+ New board",
+    "board.promptNew": "New board name:",
+    "board.promptRename": "Rename board:",
+    "board.confirmDelete": "Delete this board?",
+    "board.delete": "Delete board",
+    "board.deleteLast": "At least one board required",
+    "board.empty": "Empty board. Drag a pal from the left.",
+    "board.topN": "Passives shown",
+    "board.paletteFilter.all": "All worlds",
+    "board.palette.search": "Search name / nickname",
+    "board.palette.empty": "No owned pals in this world.",
+    "board.dragHint": "Drop here",
+    "board.commit": "Add to owned pals",
+    "board.commit.confirm": "Add this child as an owned pal in world ‘{world}’?",
+    "board.commit.done": "Added.",
+    "board.commit.alreadyDone": "This child has already been added.",
+    "board.node.unknown": "No breeding pair",
+    "board.node.sameSex": "Cannot breed — same sex",
+    "board.node.needTwoParents": "Connect two parents",
+    "board.node.child": "Child (predicted)",
+    "board.node.maleProb": "♂ {p}%",
+    "board.node.femaleProb": "♀ {p}%",
+    "board.node.passivesHeader": "Passive inheritance odds (top {n})",
+    "board.layout": "Auto layout",
+    "board.clear": "Clear board",
+    "board.clear.confirm": "Clear every node on this board?",
+    "board.export": "Export board",
+    "board.import": "Import board",
+    "board.import.success": "Imported 1 board ({p} referenced pals added)",
+    "board.import.error": "Not a valid board file.",
+    "footer.source": "Data",
+    "footer.icon": "Icons",
+
+    "common.loading": "Loading…",
+    "common.cancel": "Cancel",
+    "common.save": "Save",
+    "common.register": "Add",
+    "common.edit": "Edit",
+    "common.delete": "Delete",
+    "common.rename": "Rename",
+    "common.search": "Search",
+    "common.export": "Export",
+    "common.import": "Import",
+    "common.male": "♂ Male",
+    "common.female": "♀ Female",
+    "common.unknown": "? Unknown",
+    "common.short.male": "♂",
+    "common.short.female": "♀",
+    "common.short.unknown": "?",
+    "common.none": "-",
+    "common.results.none": "No results",
+    "common.variant": "variant",
+    "common.openWiki": "Wiki",
+
+    "home.kicker": "Palworld pal tracker",
+    "home.title": "My PalBoard",
+    "home.subtitle": "Register your pals per world and use the breeding sim and path finder together. All data lives in your browser.",
+    "home.stats.registered": "🥚 {n} pals",
+    "home.stats.worlds": "🌐 {n} worlds",
+    "home.world.add": "+ World",
+    "home.world.promptNew": "New world name:",
+    "home.world.promptRename": "Rename world:",
+    "home.world.confirmDelete": "Delete this world?",
+    "home.world.deleteLast": "At least one world required",
+    "home.world.delete": "Delete world",
+    "home.filter.placeholder": "Search by name / nickname / passive",
+    "home.sort.registered": "Recently added",
+    "home.sort.name": "Name",
+    "home.sort.level": "Level",
+    "home.add": "+ Add pal",
+    "home.bulkDelete": "Delete selected ({n})",
+    "home.bulkDelete.confirm": "Delete the {n} selected pals?",
+    "home.delete.confirm": "Delete this pal?",
+    "home.import.success": "Imported: {worlds} worlds, {pals} pals, {boards} boards",
+    "home.import.error": "Invalid file format.",
+    "home.col.pal": "Pal",
+    "home.col.nickname": "Nickname",
+    "home.col.gender": "Sex",
+    "home.col.level": "Lv",
+    "home.col.passives": "Passives",
+    "home.col.ivs": "IVs (H/A/D)",
+    "home.empty": "No pals yet. Use the + Add pal button on the right.",
+
+    "form.add.title": "Add pal",
+    "form.edit.title": "Edit pal",
+    "form.created": "Added",
+    "form.field.pal": "Species *",
+    "form.field.nickname": "Nickname",
+    "form.field.gender": "Sex",
+    "form.field.level": "Level",
+    "form.field.passives": "Passives (up to 4)",
+    "form.field.ivHp": "HP IV",
+    "form.field.ivAtk": "ATK IV",
+    "form.field.ivDef": "DEF IV",
+    "form.alert.pickPal": "Please pick a species.",
+
+    "sim.title": "Breeding simulator",
+    "sim.subtitle": "Pick two parents to see the child species, sex probability, and passive inheritance odds.",
+    "sim.parentA": "Parent A",
+    "sim.parentB": "Parent B",
+    "sim.result": "Result",
+    "sim.pickBoth": "Pick both parents.",
+    "sim.male": "♂ Male {p}%",
+    "sim.female": "♀ Female {p}%",
+    "sim.bp": "BP",
+    "sim.rarity": "Rarity",
+    "sim.passive.title": "Passive inheritance odds",
+    "sim.passive.pool": "Combined parental pool: {n}",
+    "sim.passive.event": "Event",
+    "sim.passive.prob": "Probability",
+    "sim.passive.exactly": "Exactly {k} inherited",
+    "sim.passive.inheritOne": "「{name}」 inherited",
+    "sim.passive.note": "These figures apply only to inherited slots, not the random extras. Slot PMF: 1→40%, 2→30%, 3→20%, 4→10%.",
+    "sim.reverse.title": "Reverse lookup — which parent pairs produce this pal",
+    "sim.reverse.target": "Pick target pal",
+    "sim.reverse.count": "{n} pair(s) produce this pal.",
+    "sim.reverse.cap": "Showing first 200",
+
+    "path.title": "Breeding path finder",
+    "path.subtitle": "Shortest route from your owned species. Searches up to depth {n}.",
+    "path.target": "Target pal",
+    "path.maxDepth": "Max depth",
+    "path.step.suffix": "{n} step(s)",
+    "path.ownedCount": "Owned species: {n}",
+    "path.computing": "Computing…",
+    "path.computing.empty": "No owned pals — searching across all 227 species. One moment.",
+    "path.computing.normal": "BFS over {n} species up to depth {d}",
+    "path.unreachable": "Cannot be produced within {n} steps. Increase depth or catch a recommended pal below.",
+    "path.alreadyOwn": "Already owned.",
+    "path.stepHeader": "{n}-step path",
+    "path.unlock.title": "Pals to acquire (unlocks the goal within {n} steps)",
+    "path.easier.title": "Acquire to shorten the path",
+
+    "info.title": "Palworld breeding mechanics",
+    "info.sources.prefix": "Sources:",
+    "info.dbVersion": "palcalc DB version",
+    "info.fetchedAt": "Fetched",
+    "info.gameVersion": "Game version (per wiki)",
+    "info.s1.title": "1. Child species",
+    "info.s1.intro": "Each pal has a hidden BreedingPower (≈10–1500). The child is the eligible pal whose BP is closest to the average of the parents'. Ties go to the lower internal index. The rule applies to most pairs but a few are hard-coded overrides:",
+    "info.s1.li1": "Same-species-only: Chikipi, Blazamut Ryu, Paladius, Necromus, Frostallion, Jetragon, Bellanoir Libero, Mimog, Xenovader, Xenogard, Xenolord — only breed with themselves.",
+    "info.s1.li2": "Variants / Tower bosses: specific parent pairs make variants or tower bosses (e.g. Mossanda + Petallia = Lyleen, Azurobe + Frostplume = Azurobe Cryst).",
+    "info.s1.note": "This app uses palcalc's full pair→child table ({n} entries), so the overrides are exact.",
+    "info.s2.title": "2. Passive inheritance",
+    "info.s2.intro": "The unique passives across both parents form the inheritance pool. The child rolls:",
+    "info.s2.li1": "Inherited slots X: P(X=1)=40%, P(X=2)=30%, P(X=3)=20%, P(X=4)=10%",
+    "info.s2.li2": "Random extras Y: same PMF. If Y > X the remaining slots get random passives.",
+    "info.s2.li3": "If X exceeds the pool size, the whole pool is inherited and the rest is random.",
+    "info.s2.note": "P(all-X-from-pool inherited): pool 4 → 10%, 3 → 12%, 2 → 24%, 1 → 40%.",
+    "info.s3.title": "3. Active skill inheritance",
+    "info.s4.title": "4. IV / potential inheritance",
+    "info.s5.title": "5. Hatching / egg time",
+    "info.s5.body": "Eggs are sized by the mother (S/M/L/XL). Hatch time varies by size and incubator location (warm vs cool) for some species. This MVP does not surface hatch times.",
+    "info.pmf.title": "PMF summary",
+    "info.pmf.slot": "X (inherited slots)",
+    "info.pmf.rand": "Y (random slots)",
+    "info.pmf.p": "P",
+
+    "picker.pal.placeholder": "Search pal…",
+    "picker.pal.searchPlaceholder": "Search by name / dex #",
+    "picker.pal.totalAll": "All {n}",
+    "picker.pal.totalPart": "{shown}/{total}",
+    "picker.passive.placeholder": "Add passive…",
+    "picker.passive.searchPlaceholder": "Search name / effect",
+    "picker.passive.countAll": "{shown}/{total}",
+    "picker.passive.max": "Max {n}",
+    "picker.passive.remove": "Remove {name}",
+  },
+};
+
+export function useT() {
+  const { lang } = useLang();
+  return useCallback(
+    (key: string, vars?: Record<string, string | number>) => {
+      let s = dict[lang][key] ?? dict.ko[key] ?? key;
+      if (vars) {
+        for (const [k, v] of Object.entries(vars)) {
+          s = s.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
+        }
+      }
+      return s;
+    },
+    [lang],
+  );
+}
