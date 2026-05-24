@@ -1,0 +1,31 @@
+{
+  "source": "tylercamp/palcalc (db.json + breeding.json) + palworld.wiki.gg Palpedia cross-ref",
+  "palcalcDbVersion": "v22",
+  "fetchedAt": "2026-05-24",
+  "palCount": 227,
+  "pairCount": 25879,
+  "genderConstrainedPairs": 2,
+  "paldeckMatchedFromWiki": 216,
+  "wikiReference": "https://palworld.wiki.gg/wiki/Breeding",
+  "palpediaReference": "https://palworld.wiki.gg/wiki/Palpedia",
+  "breedingMechanic": {
+    "formula": "child = pal with BreedingPower closest to floor((p1.BP + p2.BP + 1) / 2). Tiebreaker: lower InternalIndex. Special/Tower-boss/variant pairs override this rule.",
+    "passives": {
+      "slotPmf": [
+        0.4,
+        0.3,
+        0.2,
+        0.1
+      ],
+      "randomPmf": [
+        0.4,
+        0.3,
+        0.2,
+        0.1
+      ]
+    },
+    "activeSkill": "50% chance to inherit one move from a parent's full learnset (exclusives blocked).",
+    "ivs": "Each of HP/ATK/DEF: 30% father / 30% mother / 40% random mutation.",
+    "wikiVersion": "Mechanic introduced 0.1.2.0; wiki page reflects through 0.3.1.0."
+  }
+}

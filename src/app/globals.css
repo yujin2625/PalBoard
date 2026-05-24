@@ -1,26 +1,203 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* --------------------------------------------------------------------------
+ * Chillet (베비뇽) palette
+ * The sky-blue body, navy ear tips and pale icy belly give us a fresh, cool
+ * pastel theme — bright but soft, with a teal pop for highlights (the eyes).
+ * ------------------------------------------------------------------------ */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+@theme {
+  --color-chillet-50: #ecf6fd;
+  --color-chillet-100: #d6eaf8;
+  --color-chillet-200: #add5f1;
+  --color-chillet-300: #7bbde8;
+  --color-chillet-400: #4fa9dc;
+  --color-chillet-500: #2d90c9;
+  --color-chillet-600: #1f75ae;
+  --color-chillet-700: #1a5c8b;
+  --color-chillet-800: #174a70;
+  --color-chillet-900: #143a57;
+  --color-chillet-950: #0c2638;
+
+  --color-berry-300: #f3b8d4;
+  --color-berry-500: #e26ea4;
+
+  --color-mint-300: #6cdcd6;
+  --color-mint-500: #2dc4be;
+  --color-mint-700: #1a8e88;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+:root {
+  --background: #f5fbfe;
+  --foreground: #0c2638;
+  --surface: #ffffff;
+  --surface-2: #ecf6fd;
+  --border: #cfe3f3;
+  --muted: #5b7896;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #081726;
+    --foreground: #e6f2fa;
+    --surface: #0f2538;
+    --surface-2: #143a57;
+    --border: #1a5c8b;
+    --muted: #8aa9c2;
   }
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(ellipse at 80% -10%, rgba(45, 144, 201, 0.12), transparent 60%),
+    radial-gradient(ellipse at -10% 110%, rgba(45, 196, 190, 0.08), transparent 55%),
+    var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  min-height: 100vh;
 }
+
+/* Smooth scrollbar tint to match palette */
+@media (prefers-color-scheme: light) {
+  ::-webkit-scrollbar { width: 12px; height: 12px; }
+  ::-webkit-scrollbar-thumb { background: #b9d8ec; border-radius: 8px; border: 3px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: #7bbde8; background-clip: padding-box; }
+}
+
+/* --------------------------------------------------------------------------
+ * Passive skill badges — port of palworld.wiki.gg MediaWiki:Common.css.
+ * Assets are mirrored under /passives/ so they ship with the app.
+ * ------------------------------------------------------------------------ */
+
+[class^="passive-skill-"] {
+  --pw-passive-background: url(/passives/Background_Title.png);
+  position: relative;
+  display: inline-grid;
+  align-items: center;
+  justify-content: space-between;
+  background-size: cover;
+  line-height: 1.25;
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.passive-skill-pos1,
+.passive-skill-pos2,
+.passive-skill-neg1,
+.passive-skill-neg2,
+.passive-skill-neg3 {
+  background: #262e2e;
+}
+
+.passive-skill-pos3 {
+  background-image:
+    linear-gradient(#ffdd0020, #ffdd0020),
+    linear-gradient(#11111188, #111111ff),
+    url(/passives/Background_Triangle_Single.png);
+}
+
+.passive-skill-pos4 {
+  background-image:
+    linear-gradient(to right, #59bb653d, #4543d17a),
+    linear-gradient(#11111188, #111111ff),
+    url(/passives/Background_Triangle_Single.png);
+}
+
+[class^="passive-skill-"] > .psk-label {
+  grid-column: 1;
+  grid-row: 1;
+  white-space: nowrap;
+  padding: 2px 30px 2px 10px;
+  color: #fff;
+}
+
+[class^="passive-skill-"]::after {
+  grid-column: 1;
+  grid-row: 1;
+  pointer-events: none;
+  content: "";
+  position: relative;
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+  border-image-source: var(--pw-passive-background);
+  border-image-slice: 6 fill;
+  border-image-width: 6px;
+}
+
+[class^="passive-skill-"] > i {
+  position: absolute;
+  width: 1lh;
+  height: 1lh;
+  right: 2px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% calc(100% - 5px);
+  pointer-events: none;
+}
+
+.passive-skill-pos4 > i { background-image: url(/passives/Passive_Positive_4_icon.png); background-size: 100% 100%; }
+.passive-skill-pos3 > i { background-image: url(/passives/Passive_Positive_3_icon.png); }
+.passive-skill-pos2 > i { background-image: url(/passives/Passive_Positive_2_icon.png); }
+.passive-skill-pos1 > i { background-image: url(/passives/Passive_Positive_1_icon.png); }
+.passive-skill-neg1 > i { background-image: url(/passives/Passive_Negative_1_icon.png); }
+.passive-skill-neg2 > i { background-image: url(/passives/Passive_Negative_2_icon.png); }
+.passive-skill-neg3 > i { background-image: url(/passives/Passive_Negative_3_icon.png); }
+
+.passive-skill-pos3 > *:not(.psk-remove),
+.passive-skill-pos3::after {
+  filter: brightness(0) saturate(100%) invert(80%) sepia(83%) saturate(2225%) hue-rotate(350deg) brightness(95%) contrast(113%);
+}
+
+.passive-skill-pos4 > *:not(.psk-remove),
+.passive-skill-pos4::after {
+  filter: brightness(0) saturate(100%) invert(80%) sepia(13%) saturate(1347%) hue-rotate(109deg) brightness(107%) contrast(103%);
+}
+
+[class^="passive-skill-neg"] > i,
+[class^="passive-skill-neg"]::after {
+  filter: brightness(0) saturate(100%) invert(28%) sepia(91%) saturate(1562%) hue-rotate(335deg) brightness(90%) contrast(94%);
+}
+
+/* Removable chip — floating × pinned outside the top-right corner so the
+ * rank icon stays visible. The button sits in its own stacking context and
+ * is intentionally NOT inside the filtered children (otherwise pos3/pos4
+ * filters would invert its colour). */
+[class^="passive-skill-"].psk-removable {
+  overflow: visible;
+}
+.psk-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #2d2d2d;
+  color: #fff;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0;
+  z-index: 3;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: background-color 120ms, transform 120ms;
+}
+.psk-remove:hover {
+  background: var(--color-berry-500);
+  transform: scale(1.1);
+}
+
+/* Floating Chillet wave animation for headline accents */
+@keyframes bob {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-4px) rotate(2deg); }
+}
+.animate-bob { animation: bob 4s ease-in-out infinite; }

@@ -20,6 +20,12 @@
 # production
 /build
 
+# local data scratch
+/tmp
+
+# editor / agent local state
+.claude/
+
 # misc
 .DS_Store
 *.pem

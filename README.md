@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PalBoard
 
-## Getting Started
+팰월드(Palworld) 보유 팰 관리 + 교배 시뮬레이터 웹앱. Next.js + TypeScript + Tailwind.
 
-First, run the development server:
+## 기능 (MVP)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **보유 팰**: 월드별 등록/삭제(다중선택), 검색·정렬, JSON 내보내기/불러오기 — localStorage 저장.
+- **교배 시뮬**: 두 부모 → 자식 종 + 성별 확률 + 패시브 상속 확률. 자식으로부터 부모 조합 역추적.
+- **경로 찾기**: 보유 팰 종 기준 목표 팰까지의 최단 교배 경로 (최대 깊이 1~5). 도달 불가 시 필요한 팰 추천, 도달 가능해도 더 짧게 만드는 팰 추천.
+- **유전 정보**: BP 평균 공식, 패시브/액티브/IV 상속 룰, 동종 한정·타워 보스 오버라이드, 위키 버전.
+
+## 데이터 출처
+
+- [tylercamp/palcalc](https://github.com/tylercamp/palcalc) — `db.json`(팰 메타) + `breeding.json`(전체 페어→자식 매핑 25,879건)
+- [palworld.wiki.gg/wiki/Breeding](https://palworld.wiki.gg/wiki/Breeding) — 유전 시스템 룰
+
+데이터 버전과 가져온 날짜는 `src/data/meta.json`에 기록됩니다 (`/info` 페이지에도 노출).
+
+## 개발
+
+```
+npm install
+npm run dev      # http://localhost:3000
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 데이터 갱신
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+mkdir -p tmp
+curl -L https://raw.githubusercontent.com/tylercamp/palcalc/master/PalCalc.Model/db.json -o tmp/palcalc-db.json
+curl -L https://raw.githubusercontent.com/tylercamp/palcalc/master/PalCalc.Model/breeding.json -o tmp/palcalc-breeding.json
+node scripts/build-data.mjs
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 로드맵
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [ ] 4번 — 교배 트리 화이트보드 (React Flow로 드래그/노드 연결)
+- [ ] 패시브 한국어 카탈로그 자동완성
+- [ ] 보유 팰 수정 모달 (현재는 삭제·재등록만)
+- [ ] 알 크기 / 부화 시간
