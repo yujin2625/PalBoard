@@ -85,7 +85,7 @@ export default function OwnedPalsPage() {
       <section className="relative overflow-hidden rounded-3xl border border-chillet-200/70 dark:border-chillet-800/60 bg-gradient-to-br from-chillet-100 via-white to-mint-300/30 dark:from-chillet-900/60 dark:via-chillet-950 dark:to-chillet-800/40 px-6 py-6 sm:px-8 sm:py-7 shadow-sm">
         <div className="absolute -right-6 -bottom-10 w-48 h-48 sm:w-60 sm:h-60 opacity-90 pointer-events-none">
           <Image
-            src="/pals/chillet.png"
+            src="/pals/Chillet.png"
             alt=""
             fill
             sizes="240px"

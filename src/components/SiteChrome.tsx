@@ -26,7 +26,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
           <Link href="/" className="flex items-center gap-2.5 font-bold tracking-tight">
             <span className="relative inline-block h-9 w-9 animate-bob">
               <Image
-                src="/pals/chillet.png"
+                src="/pals/Chillet.png"
                 alt="Chillet"
                 fill
                 sizes="36px"
