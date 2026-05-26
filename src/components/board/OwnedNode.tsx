@@ -5,16 +5,40 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { PalAvatar } from "@/components/PalAvatar";
 import { PassiveBadge } from "@/components/PassiveBadge";
 import { palByKey, palDexLabel } from "@/lib/pal-data";
-import { palName, useLang } from "@/lib/i18n";
+import { palName, useLang, useT } from "@/lib/i18n";
 import type { OwnedPal } from "@/lib/types";
 
 export interface OwnedNodeData extends Record<string, unknown> {
-  ownedPal: OwnedPal;
+  /** Optional — null when the owned pal this node referenced has been
+   * deleted from the user's owned list since the board was last saved. */
+  ownedPal?: OwnedPal | null;
 }
 
 function OwnedNodeBase({ data }: NodeProps) {
   const { lang } = useLang();
-  const op = (data as OwnedNodeData).ownedPal;
+  const t = useT();
+  const op = (data as OwnedNodeData).ownedPal ?? null;
+
+  // Owned pal was removed since the board was last saved. Render a soft
+  // placeholder card so the board still loads instead of throwing.
+  if (!op) {
+    return (
+      <div className="rounded-xl border border-dashed border-berry-300 dark:border-berry-500/50 bg-berry-300/10 dark:bg-berry-500/10 px-3 py-2 min-w-[200px] max-w-[260px]">
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="!w-4 !h-4 !bg-berry-500 !border-2 !border-white dark:!border-chillet-900 hover:!bg-berry-300 transition-colors"
+        />
+        <div className="text-sm font-medium text-berry-500 dark:text-berry-300">
+          {t("board.node.missingOwned")}
+        </div>
+        <div className="text-[11px] text-chillet-700/70 dark:text-chillet-200/60 mt-1">
+          {t("board.node.missingOwnedHint")}
+        </div>
+      </div>
+    );
+  }
+
   const pal = palByKey(op.palKey);
   return (
     <div className="rounded-xl border border-chillet-300 dark:border-chillet-700 bg-white dark:bg-chillet-900 shadow-md shadow-chillet-500/15 px-3 py-2 min-w-[200px] max-w-[260px]">
@@ -49,10 +73,9 @@ function OwnedNodeBase({ data }: NodeProps) {
 }
 
 export const OwnedNode = memo(OwnedNodeBase, (prev, next) => {
-  const a = (prev.data as OwnedNodeData).ownedPal;
-  const b = (next.data as OwnedNodeData).ownedPal;
+  const a = (prev.data as OwnedNodeData).ownedPal ?? null;
+  const b = (next.data as OwnedNodeData).ownedPal ?? null;
   if (!a || !b) return a === b;
-  // Cheap field-by-field equality. Passives compared by stringified value.
   return (
     a.id === b.id &&
     a.palKey === b.palKey &&

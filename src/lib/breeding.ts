@@ -6,7 +6,14 @@ import {
   palByKey,
   META,
 } from "./pal-data";
-import type { Pal, PalKey } from "./types";
+import type { Gender, Pal, PalKey } from "./types";
+
+/** Minimal owned-pal slice the path-finder needs: a species and a sex.
+ * Genuine `OwnedPal` records satisfy this. */
+export interface OwnedAtom {
+  palKey: PalKey;
+  gender: Gender;
+}
 
 /** Look up the deterministic offspring of two parent species. */
 export function combine(parentA: PalKey, parentB: PalKey): Pal | null {
@@ -164,6 +171,228 @@ function reconstruct(
   }
   walk(goal);
   return steps;
+}
+
+/**
+ * Enumerate distinct breeding paths from `ownedKeys` to `targetKey`.
+ *
+ * Strategy:
+ *   1. Layered BFS computes the minimum number of breeding steps required
+ *      to produce every reachable species (`minSteps`).
+ *   2. DFS down from the target: at each species, try every parent pair
+ *      whose minSteps are both strictly less than the species', recursing
+ *      into each parent's sub-paths and merging them (deduping shared
+ *      intermediate steps).
+ *
+ * Paths are sorted by step count ascending and capped at `maxResults`
+ * to keep enumeration cheap for popular targets that have hundreds of
+ * parent combinations.
+ */
+export function allShortestPaths(
+  owned: OwnedAtom[] | Set<PalKey>,
+  targetKey: PalKey,
+  maxDepth = 4,
+  maxResults = 30,
+  options: { ignoreGender?: boolean } = {},
+): PathStep[][] {
+  const targetIdx = indexOfKey(targetKey);
+  if (targetIdx < 0) return [];
+
+  // Normalise input: a Set<PalKey> means "treat every owned pal as Unknown
+  // gender", which preserves backward-compatible behaviour (no constraint).
+  const atoms: OwnedAtom[] =
+    owned instanceof Set
+      ? [...owned].map((k) => ({ palKey: k, gender: "Unknown" }))
+      : owned;
+  const ignoreGender = !!options.ignoreGender;
+
+  // Even when the user already owns the target, we still want to enumerate
+  // breeding routes that produce it (so they can breed more / pass on
+  // passives). Pretend they don't own the target for the duration of this
+  // search — every *other* owned species remains a valid starting point.
+  const effectiveAtoms = atoms.filter((a) => a.palKey !== targetKey);
+  const effectiveOwned = new Set<PalKey>(effectiveAtoms.map((a) => a.palKey));
+
+  // Per-species gender atoms — used to check leaf-pair feasibility cheaply.
+  const atomsByKey = new Map<PalKey, OwnedAtom[]>();
+  for (const a of effectiveAtoms) {
+    const list = atomsByKey.get(a.palKey);
+    if (list) list.push(a);
+    else atomsByKey.set(a.palKey, [a]);
+  }
+
+  function leafPairBreedable(aKey: PalKey, bKey: PalKey): boolean {
+    if (ignoreGender) return true;
+    // If either side is intermediate (produced by an earlier step rather
+    // than owned outright), gender is probabilistic in-game; we treat it
+    // as flexible and let the user re-roll if needed.
+    const aLeaf = effectiveOwned.has(aKey);
+    const bLeaf = effectiveOwned.has(bKey);
+    if (!aLeaf || !bLeaf) return true;
+
+    const aList = atomsByKey.get(aKey) ?? [];
+    const bList = atomsByKey.get(bKey) ?? [];
+
+    if (aKey === bKey) {
+      // Same species — need two different owned individuals whose genders
+      // can resolve to one male + one female.
+      for (let i = 0; i < aList.length; i++) {
+        const gi = aList[i].gender;
+        for (let j = i + 1; j < aList.length; j++) {
+          const gj = aList[j].gender;
+          if (pairFeasible(gi, gj)) return true;
+        }
+      }
+      return false;
+    }
+
+    for (const a of aList) {
+      for (const b of bList) {
+        if (pairFeasible(a.gender, b.gender)) return true;
+      }
+    }
+    return false;
+  }
+
+  const t = breedingTable();
+  const minSteps = new Map<number, number>();
+  for (const k of effectiveOwned) {
+    const i = indexOfKey(k);
+    if (i >= 0) minSteps.set(i, 0);
+  }
+
+  // Layered fixed-point: each pass adds species producible at exactly `depth`.
+  for (let depth = 1; depth <= maxDepth; depth++) {
+    let added = false;
+    for (const [pairKey, child] of t) {
+      if (minSteps.has(child)) continue;
+      const [a, b] = pairKey.split("-").map(Number);
+      const da = minSteps.get(a);
+      const db = minSteps.get(b);
+      if (da != null && db != null && Math.max(da, db) + 1 === depth) {
+        // Gate by leaf-pair gender feasibility — skip combos that the user
+        // physically cannot breed today.
+        const aKey = keyOfIndex(a);
+        const bKey = keyOfIndex(b);
+        if (!leafPairBreedable(aKey, bKey)) continue;
+        minSteps.set(child, depth);
+        added = true;
+      }
+    }
+    if (!added) break;
+  }
+
+  if (!minSteps.has(targetIdx)) return [];
+
+  // Reverse index: child → list of parent pairs that produce it.
+  const parentsByChild = new Map<number, Array<[number, number]>>();
+  for (const [pairKey, child] of t) {
+    const [a, b] = pairKey.split("-").map(Number);
+    const list = parentsByChild.get(child);
+    if (list) list.push([a, b]);
+    else parentsByChild.set(child, [[a, b]]);
+  }
+
+  // Memoise sub-path enumeration. The cache key embeds the depth budget
+  // because tighter budgets can yield fewer paths.
+  const memo = new Map<string, PathStep[][]>();
+
+  function pathsFor(idx: number, budget: number): PathStep[][] {
+    if (effectiveOwned.has(keyOfIndex(idx))) return [[]];
+    const d = minSteps.get(idx);
+    if (d == null || d > budget) return [];
+    const cacheKey = `${idx}:${budget}`;
+    const cached = memo.get(cacheKey);
+    if (cached) return cached;
+
+    const childPal = palByKey(keyOfIndex(idx));
+    if (!childPal) {
+      memo.set(cacheKey, []);
+      return [];
+    }
+    const pairs = parentsByChild.get(idx) ?? [];
+    const results: PathStep[][] = [];
+    outer: for (const [a, b] of pairs) {
+      const da = minSteps.get(a);
+      const db = minSteps.get(b);
+      if (da == null || db == null) continue;
+      if (Math.max(da, db) + 1 > budget) continue;
+      // Skip pairs blocked by leaf-gender constraints.
+      if (!leafPairBreedable(keyOfIndex(a), keyOfIndex(b))) continue;
+      const aPaths = pathsFor(a, budget - 1);
+      const bPaths = pathsFor(b, budget - 1);
+      const pa = palByKey(keyOfIndex(a));
+      const pb = palByKey(keyOfIndex(b));
+      if (!pa || !pb) continue;
+      const lastStep: PathStep = { parents: [pa, pb], child: childPal };
+      for (const ap of aPaths) {
+        for (const bp of bPaths) {
+          const merged = mergeSteps(ap, bp);
+          merged.push(lastStep);
+          results.push(merged);
+          // Hard cap to keep enumeration bounded for fan-out species.
+          if (results.length >= maxResults * 4) break outer;
+        }
+      }
+    }
+    memo.set(cacheKey, results);
+    return results;
+  }
+
+  const out = pathsFor(targetIdx, maxDepth);
+  // Sort by total step count, then by smaller intermediate-species count.
+  out.sort((x, y) => x.length - y.length);
+  return dedupePaths(out).slice(0, maxResults);
+}
+
+/** Whether the two genders can resolve to one male + one female. Unknown
+ * acts as a wildcard since the user hasn't filled the sex in yet. */
+function pairFeasible(a: Gender, b: Gender): boolean {
+  const aMaleOK = a === "Male" || a === "Unknown";
+  const aFemOK = a === "Female" || a === "Unknown";
+  const bMaleOK = b === "Male" || b === "Unknown";
+  const bFemOK = b === "Female" || b === "Unknown";
+  return (aMaleOK && bFemOK) || (aFemOK && bMaleOK);
+}
+
+function mergeSteps(a: PathStep[], b: PathStep[]): PathStep[] {
+  const seen = new Set<string>();
+  const out: PathStep[] = [];
+  for (const s of a) {
+    const k = stepKey(s);
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(s);
+    }
+  }
+  for (const s of b) {
+    const k = stepKey(s);
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(s);
+    }
+  }
+  return out;
+}
+
+function stepKey(s: PathStep): string {
+  const [a, b] = [s.parents[0].key, s.parents[1].key].sort();
+  return `${a}+${b}=${s.child.key}`;
+}
+
+function dedupePaths(paths: PathStep[][]): PathStep[][] {
+  const seen = new Set<string>();
+  const out: PathStep[][] = [];
+  for (const p of paths) {
+    const sig = p
+      .map(stepKey)
+      .sort()
+      .join("|");
+    if (seen.has(sig)) continue;
+    seen.add(sig);
+    out.push(p);
+  }
+  return out;
 }
 
 /**

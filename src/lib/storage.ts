@@ -141,7 +141,25 @@ export function useOwnedPals() {
     [pals, persist],
   );
 
-  return { pals, loaded, addPal, updatePal, removePals, replaceAll, bulkAdd };
+  /** Insert several new pals at once (assigns fresh ids). Necessary because
+   * looping over addPal would persist the same stale snapshot N times and
+   * only the last entry survives. */
+  const bulkAddFresh = useCallback(
+    (incoming: Omit<OwnedPal, "id" | "createdAt">[]) => {
+      if (incoming.length === 0) return 0;
+      const now = Date.now();
+      const fresh = incoming.map<OwnedPal>((p) => ({
+        ...p,
+        id: "p-" + uid(),
+        createdAt: now,
+      }));
+      persist([...fresh, ...pals]);
+      return fresh.length;
+    },
+    [pals, persist],
+  );
+
+  return { pals, loaded, addPal, updatePal, removePals, replaceAll, bulkAdd, bulkAddFresh };
 }
 
 const KEY_BOARDS_EXTERNAL = "palboard.boards.v1";

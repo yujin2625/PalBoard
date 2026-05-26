@@ -9,6 +9,7 @@ import { palByKey, palDexLabel } from "@/lib/pal-data";
 import { PalAvatar } from "@/components/PalAvatar";
 import { PalInfoLink } from "@/components/PalInfoLink";
 import { PassiveBadge } from "@/components/PassiveBadge";
+import { BulkImageImport } from "@/components/BulkImageImport";
 import {
   exportAll,
   importAll,
@@ -24,7 +25,8 @@ export default function OwnedPalsPage() {
   const t = useT();
   const { lang } = useLang();
   const { worlds, activeId, setActive, addWorld, renameWorld, removeWorld } = useWorlds();
-  const { pals, loaded, addPal, updatePal, removePals } = useOwnedPals();
+  const { pals, loaded, addPal, updatePal, removePals, bulkAddFresh } = useOwnedPals();
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const [filter, setFilter] = useState("");
   const [sortKey, setSortKey] = useState<"createdAt" | "name" | "level">("createdAt");
@@ -200,8 +202,14 @@ export default function OwnedPalsPage() {
           ]}
         />
         <button
+          onClick={() => setBulkOpen(true)}
+          className="ml-auto px-3 py-1.5 rounded-md text-sm border border-chillet-200 dark:border-chillet-700/70 hover:bg-chillet-100 dark:hover:bg-chillet-800/50"
+        >
+          🖼 {t("home.bulkImage")}
+        </button>
+        <button
           onClick={() => setAdding(true)}
-          className="ml-auto px-3 py-1.5 rounded-md text-sm bg-chillet-500 text-white hover:bg-chillet-600"
+          className="px-3 py-1.5 rounded-md text-sm bg-chillet-500 text-white hover:bg-chillet-600"
         >
           {t("home.add")}
         </button>
@@ -229,6 +237,14 @@ export default function OwnedPalsPage() {
             addPal(p);
             setAdding(false);
           }}
+        />
+      )}
+
+      {bulkOpen && (
+        <BulkImageImport
+          worldId={activeId}
+          onClose={() => setBulkOpen(false)}
+          onAdd={(items) => bulkAddFresh(items)}
         />
       )}
 
