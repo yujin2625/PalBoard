@@ -108,6 +108,7 @@ const dict: Record<Lang, Dict> = {
     "footer.icon": "아이콘",
 
     "common.loading": "불러오는 중…",
+    "common.ok": "확인",
     "common.cancel": "취소",
     "common.save": "저장",
     "common.register": "등록",
@@ -316,6 +317,7 @@ const dict: Record<Lang, Dict> = {
     "footer.icon": "Icons",
 
     "common.loading": "Loading…",
+    "common.ok": "OK",
     "common.cancel": "Cancel",
     "common.save": "Save",
     "common.register": "Add",

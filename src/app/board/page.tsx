@@ -35,6 +35,7 @@ import { Palette } from "@/components/board/Palette";
 import { OwnedNode } from "@/components/board/OwnedNode";
 import { ChildNode } from "@/components/board/ChildNode";
 import { Select } from "@/components/Select";
+import { useTextPrompt } from "@/components/TextPromptDialog";
 import { useT } from "@/lib/i18n";
 import type { OwnedPal } from "@/lib/types";
 
@@ -71,6 +72,7 @@ function BoardInner() {
   const rf = useReactFlow();
   const wrapRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const { ask: askText, dialog: textPromptDialog } = useTextPrompt();
 
   const ownedById = useMemo(() => {
     const m = new Map<string, OwnedPal>();
@@ -393,8 +395,8 @@ function BoardInner() {
           </button>
         ))}
         <button
-          onClick={() => {
-            const name = prompt(t("board.promptNew"));
+          onClick={async () => {
+            const name = await askText(t("board.promptNew"));
             if (name) createBoard(name);
           }}
           className="px-2 py-1.5 rounded-md text-sm border border-dashed border-chillet-400/70 hover:bg-chillet-100 dark:hover:bg-chillet-800/50"
@@ -402,8 +404,8 @@ function BoardInner() {
           {t("board.new")}
         </button>
         <button
-          onClick={() => {
-            const name = prompt(t("board.promptRename"), active.name);
+          onClick={async () => {
+            const name = await askText(t("board.promptRename"), active.name);
             if (name) renameBoard(active.id, name);
           }}
           className="text-xs text-chillet-700/70 dark:text-chillet-200/60 underline ml-2"
@@ -526,6 +528,7 @@ function BoardInner() {
           )}
         </div>
       </div>
+      {textPromptDialog}
     </div>
   );
 }

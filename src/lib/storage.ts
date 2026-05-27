@@ -43,7 +43,12 @@ export function useWorlds() {
       saveJSON(KEY_WORLDS, loaded);
     }
     setWorlds(loaded);
-    setActiveId(loadJSON<string>(KEY_ACTIVE_WORLD, loaded[0].id));
+    const storedActiveId = loadJSON<string>(KEY_ACTIVE_WORLD, loaded[0].id);
+    const nextActiveId = loaded.some((w) => w.id === storedActiveId)
+      ? storedActiveId
+      : loaded[0].id;
+    setActiveId(nextActiveId);
+    saveJSON(KEY_ACTIVE_WORLD, nextActiveId);
   }, []);
 
   const persist = useCallback((next: World[]) => {
@@ -60,9 +65,10 @@ export function useWorlds() {
     (name: string) => {
       const w: World = { id: "w-" + uid(), name, createdAt: Date.now() };
       persist([...worlds, w]);
+      setActive(w.id);
       return w;
     },
-    [worlds, persist],
+    [worlds, persist, setActive],
   );
 
   const renameWorld = useCallback(
@@ -77,7 +83,7 @@ export function useWorlds() {
       if (worlds.length <= 1) return;
       const next = worlds.filter((w) => w.id !== id);
       persist(next);
-      if (activeId === id) setActive(next[0].id);
+      if (!next.some((w) => w.id === activeId)) setActive(next[0].id);
     },
     [worlds, persist, activeId, setActive],
   );

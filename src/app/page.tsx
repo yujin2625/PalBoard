@@ -10,6 +10,7 @@ import { PalAvatar } from "@/components/PalAvatar";
 import { PalInfoLink } from "@/components/PalInfoLink";
 import { PassiveBadge } from "@/components/PassiveBadge";
 import { BulkImageImport } from "@/components/BulkImageImport";
+import { useTextPrompt } from "@/components/TextPromptDialog";
 import {
   exportAll,
   importAll,
@@ -27,6 +28,7 @@ export default function OwnedPalsPage() {
   const { worlds, activeId, setActive, addWorld, renameWorld, removeWorld } = useWorlds();
   const { pals, loaded, addPal, updatePal, removePals, bulkAddFresh } = useOwnedPals();
   const [bulkOpen, setBulkOpen] = useState(false);
+  const { ask: askText, dialog: textPromptDialog } = useTextPrompt();
 
   const [filter, setFilter] = useState("");
   const [sortKey, setSortKey] = useState<"createdAt" | "name" | "level">("createdAt");
@@ -128,8 +130,8 @@ export default function OwnedPalsPage() {
           </button>
         ))}
         <button
-          onClick={() => {
-            const name = prompt(t("home.world.promptNew"));
+          onClick={async () => {
+            const name = await askText(t("home.world.promptNew"));
             if (name) addWorld(name);
           }}
           className="px-2 py-1.5 rounded-md text-sm border border-dashed border-chillet-400/70 hover:bg-chillet-100 dark:hover:bg-chillet-800/50"
@@ -137,10 +139,10 @@ export default function OwnedPalsPage() {
           {t("home.world.add")}
         </button>
         <button
-          onClick={() => {
+          onClick={async () => {
             const cur = worlds.find((w) => w.id === activeId);
             if (!cur) return;
-            const name = prompt(t("home.world.promptRename"), cur.name);
+            const name = await askText(t("home.world.promptRename"), cur.name);
             if (name) renameWorld(cur.id, name);
           }}
           className="text-xs text-chillet-700/70 dark:text-chillet-200/60 underline ml-2"
@@ -260,6 +262,8 @@ export default function OwnedPalsPage() {
           }}
         />
       )}
+
+      {textPromptDialog}
 
       <div className="border border-chillet-200/70 dark:border-chillet-800/60 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
