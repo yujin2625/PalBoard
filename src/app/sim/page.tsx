@@ -6,6 +6,7 @@ import {
   combine,
   maleProbability,
   pInheritSubset,
+  partnerParentsFor,
   parentsOf,
 } from "@/lib/breeding";
 import { palByKey, palDexLabel } from "@/lib/pal-data";
@@ -23,6 +24,8 @@ export default function SimPage() {
   const [bKey, setBKey] = useState<string | undefined>();
   const [aPassives, setAPassives] = useState<string[]>([]);
   const [bPassives, setBPassives] = useState<string[]>([]);
+  const [partnerParent, setPartnerParent] = useState<string | undefined>();
+  const [partnerChild, setPartnerChild] = useState<string | undefined>();
   const [reverseTarget, setReverseTarget] = useState<string | undefined>();
 
   const child = useMemo(() => (aKey && bKey ? combine(aKey, bKey) : null), [aKey, bKey]);
@@ -44,6 +47,10 @@ export default function SimPage() {
   const reverseParents = useMemo(
     () => (reverseTarget ? parentsOf(reverseTarget) : []),
     [reverseTarget],
+  );
+  const partnerParents = useMemo(
+    () => (partnerParent && partnerChild ? partnerParentsFor(partnerParent, partnerChild) : []),
+    [partnerParent, partnerChild],
   );
 
   return (
@@ -137,6 +144,79 @@ export default function SimPage() {
             <div className="mt-3 text-xs text-chillet-700/70 dark:text-chillet-200/60">
               {t("sim.passive.note")}
             </div>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">{t("sim.partner.title")}</h2>
+        <div className="grid sm:grid-cols-2 gap-3 max-w-3xl">
+          <div>
+            <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">
+              {t("sim.partner.parent")}
+            </label>
+            <PalPicker
+              value={partnerParent}
+              onChange={setPartnerParent}
+              placeholder={t("sim.partner.parent")}
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">
+              {t("sim.partner.child")}
+            </label>
+            <PalPicker
+              value={partnerChild}
+              onChange={setPartnerChild}
+              placeholder={t("sim.partner.child")}
+            />
+          </div>
+        </div>
+
+        {(partnerParent || partnerChild) && !(partnerParent && partnerChild) && (
+          <div className="text-sm text-chillet-700/70 dark:text-chillet-200/60">
+            {t("sim.partner.pickBoth")}
+          </div>
+        )}
+
+        {partnerParent && partnerChild && (
+          <div className="rounded-lg border border-chillet-200/70 dark:border-chillet-800/60 bg-white dark:bg-chillet-900 p-4">
+            {partnerParents.length > 0 ? (
+              <>
+                <div className="text-sm text-chillet-700/70 dark:text-chillet-200/60 mb-2">
+                  {t("sim.partner.count", { n: partnerParents.length })}
+                </div>
+                <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-1 text-sm max-h-96 overflow-y-auto">
+                  {partnerParents.slice(0, 200).map((p) => (
+                    <li
+                      key={p.key}
+                      className="px-2 py-1 rounded hover:bg-chillet-100 dark:hover:bg-chillet-800/50 flex items-center gap-1.5 min-w-0"
+                    >
+                      <PalAvatar pal={p} size={20} />
+                      <span className="truncate min-w-0 flex-1">
+                        <span className="text-chillet-700/70 dark:text-chillet-200/60 mr-1">
+                          {palDexLabel(p)}
+                        </span>
+                        {palName(p, lang)}
+                      </span>
+                      <span className="text-xs text-chillet-500/70 dark:text-chillet-300/50 shrink-0">
+                        BP {p.breedingPower}
+                      </span>
+                      <PalInfoLink pal={p} />
+                    </li>
+                  ))}
+                </ul>
+                {partnerParents.length > 200 && (
+                  <div className="text-xs text-chillet-700/70 dark:text-chillet-200/60 mt-2">
+                    {t("sim.partner.cap")}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-sm text-chillet-700/70 dark:text-chillet-200/60">
+                {t("sim.partner.none")}
+              </div>
+            )}
           </div>
         )}
       </section>

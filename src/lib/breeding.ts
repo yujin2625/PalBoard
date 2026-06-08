@@ -43,6 +43,32 @@ export function parentsOf(childKey: PalKey): Array<[Pal, Pal]> {
   return out;
 }
 
+/** Other parent species that can pair with `knownParentKey` to produce `childKey`. */
+export function partnerParentsFor(knownParentKey: PalKey, childKey: PalKey): Pal[] {
+  const known = indexOfKey(knownParentKey);
+  const target = indexOfKey(childKey);
+  if (known < 0 || target < 0) return [];
+
+  const out = new Map<PalKey, Pal>();
+  for (const [k, c] of breedingTable()) {
+    if (c !== target) continue;
+    const [a, b] = k.split("-").map(Number);
+    let partnerIdx: number | null = null;
+    if (a === known && b === known) partnerIdx = known;
+    else if (a === known) partnerIdx = b;
+    else if (b === known) partnerIdx = a;
+    if (partnerIdx == null) continue;
+
+    const partner = palByKey(keyOfIndex(partnerIdx));
+    if (partner) out.set(partner.key, partner);
+  }
+
+  return [...out.values()].sort((a, b) => {
+    if (a.dexNo !== b.dexNo) return a.dexNo - b.dexNo;
+    return a.key.localeCompare(b.key);
+  });
+}
+
 /** Probability of a male child (0..1). The wiki and palcalc per-species value. */
 export function maleProbability(child: Pal): number {
   return child.genderProb ?? 0.5;
