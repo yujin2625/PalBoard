@@ -26,16 +26,17 @@ JSON 파일로 저장하고, PalBoard가 그걸 불러옵니다.
 > 넣으세요. (창작마당 버전은 Steam이 자동 업데이트해줘서 게임 패치 후에도 잘
 > 유지되므로 오히려 권장됩니다.)
 
-1. [RE-UE4SS Releases](https://github.com/UE4SS-RE/RE-UE4SS/releases)에서 최신
-   릴리스를 받습니다. (Palworld는 최신/Experimental 빌드가 필요할 수 있음 —
-   [Palworld 모딩 위키](https://pwmodding.wiki/docs/category/ue4ss) 참고)
+1. **Palworld 전용 Experimental 빌드**를 받습니다 →
+   [Okaetsu/RE-UE4SS · experimental-palworld](https://github.com/Okaetsu/RE-UE4SS/releases/tag/experimental-palworld)
+   (일반 RE-UE4SS 릴리스는 팰월드에서 크래시할 수 있어요. 반드시 이 팰월드용
+   빌드를 쓰세요.)
 2. 압축을 풀어 나온 파일들을 게임의 **`Palworld/Pal/Binaries/Win64/`** 폴더에
    넣습니다. (`dwmapi.dll`, `UE4SS.dll`, `ue4ss/` 등이 이 폴더에 들어감)
 3. 게임을 한 번 실행해서 UE4SS가 정상 로드되는지 확인합니다. (콘솔 창이 뜨거나
    `ue4ss/UE4SS.log`가 생성됨)
 
-> Steam/게임패스, 게임 버전에 따라 설치 위치·파일이 다를 수 있으니 위 위키의
-> Palworld 전용 설치 안내를 따르는 게 가장 확실합니다.
+> Steam/게임패스, 게임 버전에 따라 설치 위치·파일이 다를 수 있습니다. 게임 패치로
+> 위 빌드가 안 맞아 크래시하면 같은 릴리스 페이지에서 갱신된 빌드를 다시 받으세요.
 
 ---
 
