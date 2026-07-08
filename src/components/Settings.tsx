@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "@/lib/i18n";
 import { getMyUid, setMyUid, clearMyUid } from "@/lib/settings";
 import { normalizeUid } from "@/lib/mod-import";
@@ -46,15 +47,17 @@ export function Settings() {
         ⚙
       </button>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setOpen(false)}
-        >
+      {open &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
-            className="w-full max-w-md rounded-2xl border border-chillet-200/70 dark:border-chillet-800/60 bg-white dark:bg-chillet-900 shadow-xl p-5 space-y-5"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4"
+            onClick={() => setOpen(false)}
           >
+            <div
+              className="w-full max-w-md rounded-2xl border border-chillet-200/70 dark:border-chillet-800/60 bg-white dark:bg-chillet-900 shadow-xl p-5 space-y-5 my-auto max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
             <div className="flex items-center justify-between">
               <div className="text-base font-semibold">{t("settings.title")}</div>
               <button
@@ -116,8 +119,9 @@ export function Settings() {
               PalBoard v0.1.0
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </>
   );
 }
