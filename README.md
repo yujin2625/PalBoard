@@ -43,6 +43,16 @@ Windows / macOS / Linux에서 **설치 없이 실행 가능**한 개인용 팰 �
 - 이름·별명·패시브 검색, 정렬(등록순/이름순/레벨순)
 - JSON 내보내기·불러오기로 백업/공유
 
+#### 팰 자동 가져오기 (수동 입력 없이 한 번에)
+- 💾 **세이브 파일에서** — 솔플이거나 내가 연 서버라면, Palworld 세이브(`Level.sav`)를
+  읽어 **종·성별·레벨·패시브·IV·별명까지 통째로** 등록. 세이브 자동 탐지(Windows),
+  여러 플레이어가 있으면 골라서 등록. *(데스크탑 앱 전용)*
+- 🎮 **게임에서 (UE4SS 모드)** — 남의 서버에 **게스트로 접속**할 땐 세이브가 호스트에
+  있어 못 읽습니다. 내 클라이언트에 모드([`mod/PalBoardExport`](mod/))를 설치하면
+  게임에서 내 팰을 뽑아 등록할 수 있어요. 여러 플레이어가 섞인 서버에선 **내 플레이어
+  UID로 자동 필터**. 설치·사용법은 [`mod/README.md`](mod/README.md) 참고.
+- 🖼 **이미지로** — 팰 박스 스크린샷에서 아이콘 인식 (종·성별)
+
 ### 2. 교배 시뮬레이션
 - 두 부모 선택 → **자식 종**, **성별 확률**, **패시브 상속 확률** 즉시 계산
 - **역추적**: 목표 팰을 정하면 그 팰을 만드는 모든 부모 조합 표시 (수천 건도 즉시)
@@ -69,6 +79,7 @@ Windows / macOS / Linux에서 **설치 없이 실행 가능**한 개인용 팰 �
 
 ### 기타
 - **한국어 / 영어 토글** — 우상단 버튼으로 즉시 전환. 팰 이름, 패시브 이름 모두 따라 바뀜
+- **우상단 ⚙ 설정** — 내 플레이어 UID(가져오기 필터용) 관리, 데이터 전체 초기화
 - 패시브 뱃지는 위키 공식 스타일(랭크별 그라데이션 + 아이콘) 그대로 사용
 
 ---
@@ -136,10 +147,15 @@ curl -L -A "PalBoard/1.0" -o tmp/passives.json \
 curl -L -A "Mozilla/5.0" -o tmp/paldb-passives-en.html "https://paldb.cc/en/Passive_Skills"
 curl -L -A "Mozilla/5.0" -o tmp/paldb-passives.html    "https://paldb.cc/ko/Passive_Skills"
 
+# 가져오기용 패시브 내부코드→이름 매핑 (KrisCris/Palworld-Pal-Editor)
+curl -L -o tmp/kriscris-passives.json \
+  "https://raw.githubusercontent.com/KrisCris/Palworld-Pal-Editor/develop/src/palworld_pal_editor/assets/data/pal_passives.json"
+
 # 빌드
-node scripts/build-data.mjs       # pals.json + breeding.json
-node scripts/build-passives.mjs   # passives.json (한국어 매핑 포함)
-node scripts/download-icons.mjs   # public/pals/ 아이콘 갱신 (incremental)
+node scripts/build-data.mjs           # pals.json + breeding.json
+node scripts/build-passives.mjs       # passives.json (한국어 매핑 포함)
+node scripts/build-passive-codes.mjs  # passive-codes.json (내부코드→이름, 세이브/모드 가져오기용)
+node scripts/download-icons.mjs       # public/pals/ 아이콘 갱신 (incremental)
 ```
 
 ### 디렉토리 구조
@@ -147,21 +163,31 @@ node scripts/download-icons.mjs   # public/pals/ 아이콘 갱신 (incremental)
 ```
 src/
   app/                    # Next.js App Router 페이지 (/, /sim, /path, /board, /info)
-  components/             # 공용 UI (PalPicker, PassiveBadge, ...)
+  components/             # 공용 UI (PalPicker, PassiveBadge, Settings, ...)
+    SaveImport.tsx        # 세이브 파일 가져오기 UI
     board/                # 화이트보드용 노드 컴포넌트
   lib/                    # 비즈니스 로직
     breeding.ts           # combine, parentsOf, shortestPath, 패시브 상속 확률
     pal-data.ts           # 팰 데이터 로드 & 인덱싱
+    mod-import.ts         # 세이브/모드 → 보유 팰 매핑 (종·패시브·성별·IV, UID 필터)
+    electron.ts           # 렌더러용 Electron 브리지 타입
+    settings.ts           # 저장 설정 (내 플레이어 UID)
     board-store.ts        # 화이트보드 영속 저장
     board-compute.ts      # 보드 트리 → 자식 해석
     i18n.tsx              # 한/영 사전 + 토글
     passives.ts, storage.ts, types.ts
-  data/                   # 빌드 산출 정적 데이터 (pals, breeding, passives, meta)
-electron/main.cjs         # 데스크탑 셸 (내장 정적 서버 + BrowserWindow)
+  data/                   # 빌드 산출 정적 데이터 (pals, breeding, passives, passive-codes, meta)
+electron/
+  main.cjs                # 데스크탑 셸 (고정 포트 정적 서버 + BrowserWindow)
+  preload.cjs             # 렌더러↔메인 IPC 브리지
+  save-parse.mjs          # 세이브 파싱 (메인 프로세스, Node)
+  vendor/                 # 세이브 파서 — uesave WASM + ooz + gvas-pals (팰 맵 디코드)
+mod/
+  PalBoardExport/         # UE4SS 팰 내보내기 모드 (게스트 서버용)
 public/
   pals/                   # 팰 아이콘 227개
   passives/               # 패시브 뱃지 자산 (위키 미러)
-scripts/                  # 데이터 갱신 스크립트
+scripts/                  # 데이터 갱신 + parse-save.mjs (세이브 파서 CLI 테스트)
 ```
 
 ---
@@ -175,6 +201,9 @@ scripts/                  # 데이터 갱신 스크립트
 | [tylercamp/palcalc](https://github.com/tylercamp/palcalc) | 팰 메타 + 교배 페어 매핑(25,879건) |
 | [palworld.wiki.gg](https://palworld.wiki.gg) | 유전 시스템 룰, Paldeck, 팰 아이콘, 패시브 데이터/뱃지 스타일 |
 | [paldb.cc](https://paldb.cc) | 패시브 한국어 이름 |
+| [iebb/PalworldSaveEditor](https://github.com/iebb/PalworldSaveEditor) | 세이브 파서 (uesave WASM + ooz 압축 해제) — MIT |
+| [KrisCris/Palworld-Pal-Editor](https://github.com/KrisCris/Palworld-Pal-Editor) | 패시브 내부코드→이름 매핑 |
+| [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) | 게임에서 가져오기 모드 실행 기반 |
 
 데이터 버전과 가져온 날짜는 [src/data/meta.json](src/data/meta.json)과 앱 내 `유전 정보` 페이지에서 확인할 수 있습니다.
 
