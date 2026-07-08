@@ -181,6 +181,16 @@ export function exportAll(): string {
   return JSON.stringify(data, null, 2);
 }
 
+/** Wipe all locally-stored data (worlds, pals, boards, saved UID). Language
+ * preference is intentionally left alone. Caller should reload afterwards. */
+export function clearAllData(): void {
+  for (const k of [KEY_PALS, KEY_WORLDS, KEY_ACTIVE_WORLD, KEY_BOARDS_EXTERNAL, "palboard.myPlayerUid"]) {
+    try {
+      window.localStorage.removeItem(k);
+    } catch {}
+  }
+}
+
 export function importAll(
   json: string,
 ): { worlds: number; pals: number; boards: number } {

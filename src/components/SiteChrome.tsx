@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useT } from "@/lib/i18n";
 import { LangToggle } from "./LangToggle";
+import { Settings } from "./Settings";
 
 const nav = [
   { href: "/", key: "nav.owned" },
@@ -51,6 +52,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
           </nav>
           <div className="ml-auto flex items-center gap-3">
             <LangToggle />
+            <Settings />
           </div>
         </div>
       </header>

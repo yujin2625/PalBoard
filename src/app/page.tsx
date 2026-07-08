@@ -20,6 +20,7 @@ import {
   useWorlds,
 } from "@/lib/storage";
 import { mapRawPals, hasOwnerData, type ModExportPal } from "@/lib/mod-import";
+import { getMyUid, setMyUid, clearMyUid } from "@/lib/settings";
 import type { Gender, OwnedPal } from "@/lib/types";
 import { palName, useLang, useT } from "@/lib/i18n";
 
@@ -90,21 +91,15 @@ export default function OwnedPalsPage() {
     }
 
     // When the file mixes several players (server/multiplayer), keep only pals
-    // owned by your PlayerUId. Ask once, then remember it.
-    const UID_KEY = "palboard.myPlayerUid";
+    // owned by your PlayerUId. Ask once, then remember it (see Settings to edit).
     let filterUid: string | undefined;
     if (hasOwnerData(rawPals)) {
-      let saved = "";
-      try {
-        saved = localStorage.getItem(UID_KEY) ?? "";
-      } catch {}
+      let saved = getMyUid();
       if (!saved) {
         const entered = await askText(t("modImport.uidPrompt"));
         if (entered && entered.trim()) {
           saved = entered.trim();
-          try {
-            localStorage.setItem(UID_KEY, saved);
-          } catch {}
+          setMyUid(saved);
         }
       }
       filterUid = saved || undefined;
@@ -113,9 +108,7 @@ export default function OwnedPalsPage() {
     const res = mapRawPals(rawPals, activeId, filterUid);
     if (res.pals.length === 0 && filterUid) {
       // Probably a mistyped UID — clear it so the next import re-prompts.
-      try {
-        localStorage.removeItem(UID_KEY);
-      } catch {}
+      clearMyUid();
       alert(t("modImport.noMatch"));
       return;
     }

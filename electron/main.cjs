@@ -77,11 +77,25 @@ function startStaticServer(rootDir) {
         res.writeHead(500).end(String(e));
       }
     });
-    server.on("error", reject);
-    server.listen(0, "127.0.0.1", () => {
+    // Bind to a FIXED port so the app's origin — and therefore its
+    // localStorage (worlds, pals, boards, saved UID) — stays the same across
+    // launches. A random port would give a new origin every time and appear to
+    // wipe all data. Fall back to a random port only if the fixed one is taken.
+    const PREFERRED_PORT = 47821;
+    let usedFallback = false;
+    server.on("error", (err) => {
+      if (err && err.code === "EADDRINUSE" && !usedFallback) {
+        usedFallback = true;
+        server.listen(0, "127.0.0.1");
+      } else {
+        reject(err);
+      }
+    });
+    server.on("listening", () => {
       const port = server.address().port;
       resolve({ server, url: `http://127.0.0.1:${port}/` });
     });
+    server.listen(PREFERRED_PORT, "127.0.0.1");
   });
 }
 
@@ -219,14 +233,30 @@ function registerIpc() {
   });
 }
 
-app.whenReady().then(() => {
-  installMenu();
-  registerIpc();
-  createWindow();
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+// Single-instance: a second launch focuses the existing window instead of
+// spinning up another server (which would grab a different port → new origin →
+// data appears wiped). Keeps the fixed-port storage stable.
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
   });
-});
+
+  app.whenReady().then(() => {
+    installMenu();
+    registerIpc();
+    createWindow();
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  });
+}
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
