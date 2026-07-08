@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { PalPicker } from "@/components/PalPicker";
 import { Select } from "@/components/Select";
@@ -10,6 +10,8 @@ import { PalAvatar } from "@/components/PalAvatar";
 import { PalInfoLink } from "@/components/PalInfoLink";
 import { PassiveBadge } from "@/components/PassiveBadge";
 import { BulkImageImport } from "@/components/BulkImageImport";
+import { SaveImport } from "@/components/SaveImport";
+import { getPalboard } from "@/lib/electron";
 import { useTextPrompt } from "@/components/TextPromptDialog";
 import {
   exportAll,
@@ -17,6 +19,7 @@ import {
   useOwnedPals,
   useWorlds,
 } from "@/lib/storage";
+import { mapRawPals, hasOwnerData, type ModExportPal } from "@/lib/mod-import";
 import type { Gender, OwnedPal } from "@/lib/types";
 import { palName, useLang, useT } from "@/lib/i18n";
 
@@ -28,6 +31,13 @@ export default function OwnedPalsPage() {
   const { worlds, activeId, setActive, addWorld, renameWorld, removeWorld } = useWorlds();
   const { pals, loaded, addPal, updatePal, removePals, bulkAddFresh } = useOwnedPals();
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  // Client-only detection of the Electron bridge (false during static prerender).
+  const isElectron = useSyncExternalStore(
+    () => () => {},
+    () => getPalboard() !== null,
+    () => false,
+  );
   const { ask: askText, dialog: textPromptDialog } = useTextPrompt();
 
   const [filter, setFilter] = useState("");
@@ -61,6 +71,67 @@ export default function OwnedPalsPage() {
   }, [pals, activeId, filter, sortKey, lang]);
 
   const fileInput = useRef<HTMLInputElement>(null);
+  const modFileInput = useRef<HTMLInputElement>(null);
+
+  async function handleModImport(file: File) {
+    const text = await file.text();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      alert(t("modImport.error"));
+      return;
+    }
+    const obj = parsed as { pals?: unknown };
+    const rawPals = Array.isArray(obj?.pals) ? (obj.pals as ModExportPal[]) : null;
+    if (!rawPals) {
+      alert(t("modImport.error"));
+      return;
+    }
+
+    // When the file mixes several players (server/multiplayer), keep only pals
+    // owned by your PlayerUId. Ask once, then remember it.
+    const UID_KEY = "palboard.myPlayerUid";
+    let filterUid: string | undefined;
+    if (hasOwnerData(rawPals)) {
+      let saved = "";
+      try {
+        saved = localStorage.getItem(UID_KEY) ?? "";
+      } catch {}
+      if (!saved) {
+        const entered = await askText(t("modImport.uidPrompt"));
+        if (entered && entered.trim()) {
+          saved = entered.trim();
+          try {
+            localStorage.setItem(UID_KEY, saved);
+          } catch {}
+        }
+      }
+      filterUid = saved || undefined;
+    }
+
+    const res = mapRawPals(rawPals, activeId, filterUid);
+    if (res.pals.length === 0 && filterUid) {
+      // Probably a mistyped UID — clear it so the next import re-prompts.
+      try {
+        localStorage.removeItem(UID_KEY);
+      } catch {}
+      alert(t("modImport.noMatch"));
+      return;
+    }
+    if (res.pals.length > 0) bulkAddFresh(res.pals);
+    const extra =
+      res.stats.unmatchedSpecies.length > 0
+        ? t("modImport.unmatchedNote", { n: res.stats.unmatchedSpecies.length })
+        : "";
+    alert(
+      t("modImport.success", {
+        matched: res.stats.matched,
+        total: res.stats.total,
+        extra,
+      }),
+    );
+  }
 
   function handleExport() {
     const blob = new Blob([exportAll()], { type: "application/json" });
@@ -210,6 +281,31 @@ export default function OwnedPalsPage() {
           🖼 {t("home.bulkImage")}
         </button>
         <button
+          onClick={() => modFileInput.current?.click()}
+          className="px-3 py-1.5 rounded-md text-sm border border-chillet-200 dark:border-chillet-700/70 hover:bg-chillet-100 dark:hover:bg-chillet-800/50"
+        >
+          {t("home.modImport")}
+        </button>
+        {isElectron && (
+          <button
+            onClick={() => setSaveOpen(true)}
+            className="px-3 py-1.5 rounded-md text-sm border border-chillet-200 dark:border-chillet-700/70 hover:bg-chillet-100 dark:hover:bg-chillet-800/50"
+          >
+            {t("home.saveImport")}
+          </button>
+        )}
+        <input
+          ref={modFileInput}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleModImport(f);
+            e.target.value = "";
+          }}
+        />
+        <button
           onClick={() => setAdding(true)}
           className="px-3 py-1.5 rounded-md text-sm bg-chillet-500 text-white hover:bg-chillet-600"
         >
@@ -246,6 +342,14 @@ export default function OwnedPalsPage() {
         <BulkImageImport
           worldId={activeId}
           onClose={() => setBulkOpen(false)}
+          onAdd={(items) => bulkAddFresh(items)}
+        />
+      )}
+
+      {saveOpen && (
+        <SaveImport
+          worldId={activeId}
+          onClose={() => setSaveOpen(false)}
           onAdd={(items) => bulkAddFresh(items)}
         />
       )}

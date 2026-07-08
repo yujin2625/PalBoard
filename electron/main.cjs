@@ -6,10 +6,11 @@
 // In dev mode (ELECTRON_DEV=1) we point straight at the running Next.js
 // dev server instead so changes hot-reload normally.
 
-const { app, BrowserWindow, shell, Menu } = require("electron");
+const { app, BrowserWindow, shell, Menu, ipcMain, dialog } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const http = require("node:http");
+const { pathToFileURL } = require("node:url");
 const { extname } = require("node:path");
 
 const isDev = process.env.ELECTRON_DEV === "1";
@@ -98,6 +99,7 @@ async function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      preload: path.join(__dirname, "preload.cjs"),
     },
   });
 
@@ -137,8 +139,89 @@ function installMenu() {
   }
 }
 
+/**
+ * Default Palworld local save root(s). Only Windows has a stable well-known
+ * location; elsewhere the user picks the file manually.
+ */
+function saveRoots() {
+  const roots = [];
+  if (process.platform === "win32" && process.env.LOCALAPPDATA) {
+    roots.push(path.join(process.env.LOCALAPPDATA, "Pal", "Saved", "SaveGames"));
+  }
+  return roots;
+}
+
+/** Scan for <root>/<steamId>/<worldId>/Level.sav, newest first. */
+function detectSaves() {
+  const found = [];
+  for (const root of saveRoots()) {
+    let steamDirs = [];
+    try {
+      steamDirs = fs.readdirSync(root, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const s of steamDirs) {
+      if (!s.isDirectory()) continue;
+      const steamPath = path.join(root, s.name);
+      let worldDirs = [];
+      try {
+        worldDirs = fs.readdirSync(steamPath, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const w of worldDirs) {
+        if (!w.isDirectory()) continue;
+        const levelPath = path.join(steamPath, w.name, "Level.sav");
+        try {
+          const st = fs.statSync(levelPath);
+          if (st.isFile()) {
+            found.push({ path: levelPath, world: w.name, steam: s.name, mtime: st.mtimeMs });
+          }
+        } catch {
+          /* no Level.sav here */
+        }
+      }
+    }
+  }
+  return found.sort((a, b) => b.mtime - a.mtime);
+}
+
+function registerIpc() {
+  ipcMain.handle("palboard:detect-saves", () => {
+    try {
+      return detectSaves();
+    } catch {
+      return [];
+    }
+  });
+
+  ipcMain.handle("palboard:pick-save", async () => {
+    const roots = saveRoots();
+    const res = await dialog.showOpenDialog({
+      title: "Palworld Level.sav 선택",
+      defaultPath: roots[0],
+      properties: ["openFile"],
+      filters: [{ name: "Palworld save", extensions: ["sav"] }],
+    });
+    if (res.canceled || res.filePaths.length === 0) return null;
+    return res.filePaths[0];
+  });
+
+  ipcMain.handle("palboard:parse-save", async (_evt, savePath) => {
+    try {
+      if (typeof savePath !== "string" || !savePath) throw new Error("no path");
+      const mod = await import(pathToFileURL(path.join(__dirname, "save-parse.mjs")).href);
+      return await mod.parseSave(savePath);
+    } catch (e) {
+      return { error: String(e && e.message ? e.message : e) };
+    }
+  });
+}
+
 app.whenReady().then(() => {
   installMenu();
+  registerIpc();
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

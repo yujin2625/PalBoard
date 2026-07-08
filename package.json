@@ -28,7 +28,8 @@
       "package.json"
     ],
     "asarUnpack": [
-      "out/**/*"
+      "out/**/*",
+      "electron/vendor/**/*"
     ],
     "win": {
       "target": [
