@@ -28,7 +28,15 @@ type Result = {
   unlockSuggestions: Pal[];
   easierSuggestions: Pal[];
   capped: boolean;
+  /** Target is reachable, but no path within the searched pool used the
+   * required pal — distinct from genuine unreachability. */
+  requiredPalMiss: boolean;
 } | null;
+
+// When a required pal is set we can't just take the shortest N paths —
+// the ones that happen to include it might be further down the list — so
+// we pull a much larger pool first and filter, then cap for display.
+const REQUIRED_POOL_SIZE = 300;
 
 export default function PathPage() {
   const t = useT();
@@ -39,6 +47,7 @@ export default function PathPage() {
   const [maxResults, setMaxResults] = useState(10);
   const [ignoreGender, setIgnoreGender] = useState(false);
   const [desiredPassives, setDesiredPassives] = useState<string[]>([]);
+  const [requiredPal, setRequiredPal] = useState<string | undefined>();
 
   const ownedKeys = useMemo<Set<PalKey>>(
     () => new Set(pals.map((p) => p.palKey)),
@@ -60,28 +69,38 @@ export default function PathPage() {
     setResult(null);
     const handle = setTimeout(() => {
       startTransition(() => {
-        // Enumerate up to (maxResults + 1) so we can detect the "capped" case.
-        const paths = allShortestPaths(ownedAtoms, target, maxDepth, maxResults + 1, {
+        // Enumerate up to (maxResults + 1) so we can detect the "capped" case
+        // — or a much larger pool when a required pal is set, since the
+        // paths that happen to include it aren't necessarily the shortest
+        // ones and could be missed by a small enumeration.
+        const poolSize = requiredPal ? REQUIRED_POOL_SIZE : maxResults + 1;
+        const rawPaths = allShortestPaths(ownedAtoms, target, maxDepth, poolSize, {
           ignoreGender,
         });
+        const paths = requiredPal
+          ? rawPaths.filter((path) =>
+              path.some((s) => s.parents[0].key === requiredPal || s.parents[1].key === requiredPal),
+            )
+          : rawPaths;
+        const requiredPalMiss = !!requiredPal && rawPaths.length > 0 && paths.length === 0;
         const capped = paths.length > maxResults;
         const displayed = capped ? paths.slice(0, maxResults) : paths;
 
         let unlockSuggestions: Pal[] = [];
         let easierSuggestions: Pal[] = [];
-        if (paths.length === 0) {
+        if (rawPaths.length === 0) {
           unlockSuggestions = suggestAcquisitions(ownedKeys, target, maxDepth);
-        } else if (paths[0].length > 0) {
+        } else if (paths.length > 0 && paths[0].length > 0) {
           const shortest = paths[0].length;
           easierSuggestions = suggestAcquisitions(ownedKeys, target, shortest).filter(
             (p) => !ownedKeys.has(p.key),
           );
         }
-        setResult({ paths: displayed, unlockSuggestions, easierSuggestions, capped });
+        setResult({ paths: displayed, unlockSuggestions, easierSuggestions, capped, requiredPalMiss });
       });
     }, 0);
     return () => clearTimeout(handle);
-  }, [ownedKeys, ownedAtoms, target, maxDepth, maxResults, ignoreGender]);
+  }, [ownedKeys, ownedAtoms, target, maxDepth, maxResults, ignoreGender, requiredPal]);
 
   const computing = isPending || (target !== undefined && result === null);
 
@@ -178,6 +197,21 @@ export default function PathPage() {
           <PalPicker value={target} onChange={setTarget} />
         </div>
         <div className="w-72">
+          <label className="flex items-center justify-between text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">
+            <span>{t("path.requiredPal")}</span>
+            {requiredPal && (
+              <button
+                type="button"
+                onClick={() => setRequiredPal(undefined)}
+                className="underline hover:text-chillet-900 dark:hover:text-white"
+              >
+                {t("settings.uid.clear")}
+              </button>
+            )}
+          </label>
+          <PalPicker value={requiredPal} onChange={setRequiredPal} />
+        </div>
+        <div className="w-72">
           <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">
             {t("path.desiredPassives")}
           </label>
@@ -190,7 +224,7 @@ export default function PathPage() {
             size="sm"
             value={maxDepth}
             onChange={setMaxDepth}
-            options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: t("path.step.suffix", { n }) }))}
+            options={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => ({ value: n, label: t("path.step.suffix", { n }) }))}
           />
         </div>
         <div>
@@ -239,7 +273,7 @@ export default function PathPage() {
           )}
           {result.paths.length === 0 ? (
             <div className="rounded-lg border border-berry-300 bg-berry-300/15 dark:bg-berry-500/15 dark:border-berry-500/40 p-4 text-sm">
-              {t("path.unreachable", { n: maxDepth })}
+              {result.requiredPalMiss ? t("path.requiredMiss") : t("path.unreachable", { n: maxDepth })}
             </div>
           ) : displayOrder.length === 0 ? (
             <div className="rounded-lg border border-berry-300 bg-berry-300/15 dark:bg-berry-500/15 dark:border-berry-500/40 p-4 text-sm">
@@ -315,11 +349,9 @@ export default function PathPage() {
                             <li key={j} className="border-l-2 border-mint-500 pl-3">
                               <div className="flex items-center flex-wrap gap-1.5 text-sm">
                                 <span className="text-chillet-700/70 dark:text-chillet-200/60 w-6">{j + 1}.</span>
-                                <PalAvatar pal={s.parents[0]} size={24} />
-                                <span className="text-chillet-800 dark:text-chillet-100">{palName(s.parents[0], lang)}</span>
+                                <ParentTag pal={s.parents[0]} lang={lang} highlighted={s.parents[0].key === requiredPal} />
                                 <span className="text-chillet-500/60 dark:text-chillet-300/40">×</span>
-                                <PalAvatar pal={s.parents[1]} size={24} />
-                                <span className="text-chillet-800 dark:text-chillet-100">{palName(s.parents[1], lang)}</span>
+                                <ParentTag pal={s.parents[1]} lang={lang} highlighted={s.parents[1].key === requiredPal} />
                                 <span className="text-chillet-500/60 dark:text-chillet-300/40 mx-1">→</span>
                                 <PalAvatar pal={s.child} size={24} />
                                 <span className="font-medium">{palName(s.child, lang)}</span>
@@ -404,6 +436,27 @@ export default function PathPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function ParentTag({ pal, lang, highlighted }: { pal: Pal; lang: ReturnType<typeof useLang>["lang"]; highlighted: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 ${
+        highlighted ? "rounded-full ring-2 ring-chillet-500 pl-0.5 pr-2 py-0.5" : ""
+      }`}
+    >
+      <PalAvatar pal={pal} size={24} />
+      <span
+        className={
+          highlighted
+            ? "font-semibold text-chillet-700 dark:text-chillet-200"
+            : "text-chillet-800 dark:text-chillet-100"
+        }
+      >
+        {palName(pal, lang)}
+      </span>
+    </span>
   );
 }
 

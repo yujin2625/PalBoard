@@ -278,6 +278,8 @@ const dict: Record<Lang, Dict> = {
     "path.desiredPassives": "원하는 패시브 (선택)",
     "path.desiredProb": "목표 패시브 확률: {p}%",
     "path.noPassiveMatch": "이 경로들로는 선택한 패시브 조합을 만들 수 없습니다 (모두 0%). 다른 패시브를 가진 팰을 추가로 잡거나, 원하는 패시브를 줄여보세요.",
+    "path.requiredPal": "필수 참여 팰 (선택)",
+    "path.requiredMiss": "목표 팰은 만들 수 있지만, 선택한 팰이 들어가는 경로는 탐색 범위 내에서 찾지 못했습니다. 최대 깊이나 최대 경로 수를 늘려보세요.",
 
     "info.title": "팰월드 유전 시스템",
     "info.sources.prefix": "본 자료의 출처:",
@@ -529,6 +531,8 @@ const dict: Record<Lang, Dict> = {
     "path.desiredPassives": "Desired passives (optional)",
     "path.desiredProb": "Target passive odds: {p}%",
     "path.noPassiveMatch": "None of these paths can produce that passive combo (all 0%). Catch a pal with different passives, or pick fewer desired passives.",
+    "path.requiredPal": "Required pal (optional)",
+    "path.requiredMiss": "The target is reachable, but no path within the current search includes that pal. Try raising max depth or max paths.",
 
     "info.title": "Palworld breeding mechanics",
     "info.sources.prefix": "Sources:",
