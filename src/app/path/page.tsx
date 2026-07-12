@@ -120,11 +120,13 @@ export default function PathPage() {
 
   // Display order: ranked by desired-passive odds (best first) when the
   // user picked a target passive combo, otherwise the original shortest-
-  // path-first order.
+  // path-first order. Paths that can't possibly produce the combo (0%) are
+  // dropped rather than shown at the bottom — they're not a usable answer.
   const displayOrder = useMemo(() => {
     const n = result?.paths.length ?? 0;
-    const order = Array.from({ length: n }, (_, i) => i);
+    let order = Array.from({ length: n }, (_, i) => i);
     if (!desiredProbs) return order;
+    order = order.filter((i) => desiredProbs[i] > 0);
     return order.sort((a, b) => {
       const d = desiredProbs[b] - desiredProbs[a];
       if (d !== 0) return d;
@@ -239,10 +241,14 @@ export default function PathPage() {
             <div className="rounded-lg border border-berry-300 bg-berry-300/15 dark:bg-berry-500/15 dark:border-berry-500/40 p-4 text-sm">
               {t("path.unreachable", { n: maxDepth })}
             </div>
+          ) : displayOrder.length === 0 ? (
+            <div className="rounded-lg border border-berry-300 bg-berry-300/15 dark:bg-berry-500/15 dark:border-berry-500/40 p-4 text-sm">
+              {t("path.noPassiveMatch")}
+            </div>
           ) : (
             <>
               <div className="text-sm text-chillet-700/70 dark:text-chillet-200/60">
-                {t("path.pathsFound", { n: result.paths.length })}
+                {t("path.pathsFound", { n: displayOrder.length })}
                 {result.capped && (
                   <span className="ml-2 text-berry-500">• {t("path.morePaths")}</span>
                 )}
