@@ -20,6 +20,7 @@ export function PalPicker({ value, onChange, placeholder, excludeVariants }: Pro
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -28,6 +29,17 @@ export function PalPicker({ value, onChange, placeholder, excludeVariants }: Pro
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  // The `autoFocus` attribute can miss its window in the packaged desktop
+  // app (Electron's renderer isn't always considered focus-ready in the
+  // same tick as the triggering click), so grab focus explicitly instead.
+  // A macrotask (not requestAnimationFrame, which browsers throttle/skip
+  // entirely for an unfocused window) reliably runs after the commit.
+  useEffect(() => {
+    if (!open) return;
+    const id = setTimeout(() => searchInput.current?.focus(), 0);
+    return () => clearTimeout(id);
   }, [open]);
 
   const filtered = useMemo(() => {
@@ -82,7 +94,7 @@ export function PalPicker({ value, onChange, placeholder, excludeVariants }: Pro
       {open && (
         <div className="absolute z-30 mt-1 w-full rounded-md border border-chillet-200 dark:border-chillet-700/70 bg-white dark:bg-chillet-900 shadow-xl shadow-chillet-500/10">
           <input
-            autoFocus
+            ref={searchInput}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("picker.pal.searchPlaceholder")}
