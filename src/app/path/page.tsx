@@ -9,11 +9,16 @@ import {
   type OwnedAtom,
   type PathStep,
 } from "@/lib/breeding";
-import { palDexLabel } from "@/lib/pal-data";
+import { resolveBoard } from "@/lib/board-compute";
+import { pathToBoardGraph } from "@/lib/path-to-board";
+import { useBoards } from "@/lib/board-store";
+import { META, palDexLabel } from "@/lib/pal-data";
 import { useOwnedPals } from "@/lib/storage";
-import type { Pal, PalKey } from "@/lib/types";
+import type { OwnedPal, Pal, PalKey } from "@/lib/types";
 import { PalAvatar } from "@/components/PalAvatar";
 import { PalInfoLink } from "@/components/PalInfoLink";
+import { PassiveBadge } from "@/components/PassiveBadge";
+import { PathBoardPreview } from "@/components/board/PathBoardPreview";
 import { palName, useLang, useT } from "@/lib/i18n";
 
 type Result = {
@@ -77,6 +82,55 @@ export default function PathPage() {
 
   const computing = isPending || (target !== undefined && result === null);
 
+  const ownedById = useMemo(() => {
+    const m = new Map<string, OwnedPal>();
+    for (const p of pals) m.set(p.id, p);
+    return m;
+  }, [pals]);
+
+  // Per-path board graph (nodes/edges) + resolved passive/gender info, built
+  // from the real owned pals so both the inline passive display and the
+  // whiteboard preview/export share one computation.
+  const pathGraphs = useMemo(
+    () =>
+      (result?.paths ?? []).map((path) => {
+        if (path.length === 0) return null;
+        const { nodes, edges, stepNodeIds } = pathToBoardGraph(path, pals);
+        const resolutions = resolveBoard(nodes, edges, ownedById);
+        return { nodes, edges, stepNodeIds, resolutions };
+      }),
+    [result, pals, ownedById],
+  );
+
+  const { active: activeBoard, updateBoard } = useBoards();
+  const [expandedPaths, setExpandedPaths] = useState<Set<number>>(new Set());
+  const [addedPaths, setAddedPaths] = useState<Set<number>>(new Set());
+
+  function toggleExpanded(i: number) {
+    setExpandedPaths((s) => {
+      const next = new Set(s);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  }
+
+  function handleAddToBoard(i: number, path: PathStep[]) {
+    if (!activeBoard || path.length === 0) return;
+    const maxY = activeBoard.nodes.reduce((m, n) => Math.max(m, n.position.y), -130);
+    const minX = activeBoard.nodes.reduce(
+      (m, n) => Math.min(m, n.position.x),
+      activeBoard.nodes.length > 0 ? Infinity : 0,
+    );
+    const origin = { x: minX === Infinity ? 0 : minX, y: activeBoard.nodes.length > 0 ? maxY + 130 : 0 };
+    const { nodes, edges } = pathToBoardGraph(path, pals, origin);
+    updateBoard(activeBoard.id, {
+      nodes: [...activeBoard.nodes, ...nodes],
+      edges: [...activeBoard.edges, ...edges],
+    });
+    setAddedPaths((s) => new Set(s).add(i));
+  }
+
   if (!loaded) return <div className="text-chillet-700/70 dark:text-chillet-200/60">{t("common.loading")}</div>;
 
   return (
@@ -131,7 +185,7 @@ export default function PathPage() {
             <div className="text-sm font-medium">{t("path.computing")}</div>
             <div className="text-xs text-chillet-700/70 dark:text-chillet-200/60">
               {ownedKeys.size === 0
-                ? t("path.computing.empty")
+                ? t("path.computing.empty", { n: META.palCount })
                 : t("path.computing.normal", { n: ownedKeys.size, d: maxDepth })}
             </div>
           </div>
@@ -158,37 +212,87 @@ export default function PathPage() {
                 )}
               </div>
               <div className="space-y-3">
-                {result.paths.map((path, i) => (
-                  <div
-                    key={i}
-                    className="rounded-lg border border-chillet-200/70 dark:border-chillet-800/60 bg-white dark:bg-chillet-900 p-4"
-                  >
-                    <div className="text-xs font-medium mb-3 text-chillet-700 dark:text-chillet-200">
-                      {t("path.pathHeader", { idx: i + 1, n: path.length })}
+                {result.paths.map((path, i) => {
+                  const graph = pathGraphs[i];
+                  const expanded = expandedPaths.has(i);
+                  const added = addedPaths.has(i);
+                  return (
+                    <div
+                      key={i}
+                      className="rounded-lg border border-chillet-200/70 dark:border-chillet-800/60 bg-white dark:bg-chillet-900 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                        <div className="text-xs font-medium text-chillet-700 dark:text-chillet-200">
+                          {t("path.pathHeader", { idx: i + 1, n: path.length })}
+                        </div>
+                        {graph && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleExpanded(i)}
+                              className="text-xs px-2 py-1 rounded-md border border-chillet-200 dark:border-chillet-700/70 hover:bg-chillet-100 dark:hover:bg-chillet-800/50"
+                            >
+                              {expanded ? t("path.hideBoard") : t("path.viewBoard")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAddToBoard(i, path)}
+                              disabled={added}
+                              className="text-xs px-2 py-1 rounded-md bg-chillet-500 text-white hover:bg-chillet-600 disabled:opacity-60 disabled:cursor-default"
+                            >
+                              {added ? t("path.added") : t("path.addToBoard")}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <ol className="space-y-2">
+                        {path.map((s, j) => {
+                          const r = graph?.resolutions.get(graph.stepNodeIds[j]);
+                          const top = (r?.perPassiveProb ?? []).slice(0, 4);
+                          return (
+                            <li key={j} className="border-l-2 border-mint-500 pl-3">
+                              <div className="flex items-center flex-wrap gap-1.5 text-sm">
+                                <span className="text-chillet-700/70 dark:text-chillet-200/60 w-6">{j + 1}.</span>
+                                <PalAvatar pal={s.parents[0]} size={24} />
+                                <span className="text-chillet-800 dark:text-chillet-100">{palName(s.parents[0], lang)}</span>
+                                <span className="text-chillet-500/60 dark:text-chillet-300/40">×</span>
+                                <PalAvatar pal={s.parents[1]} size={24} />
+                                <span className="text-chillet-800 dark:text-chillet-100">{palName(s.parents[1], lang)}</span>
+                                <span className="text-chillet-500/60 dark:text-chillet-300/40 mx-1">→</span>
+                                <PalAvatar pal={s.child} size={24} />
+                                <span className="font-medium">{palName(s.child, lang)}</span>
+                                {j === path.length - 1 && (
+                                  <PalInfoLink pal={s.child} className="ml-1" />
+                                )}
+                              </div>
+                              {top.length > 0 && (
+                                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                  {top.map((p) => (
+                                    <span key={p.name} className="flex items-center gap-1">
+                                      <PassiveBadge name={p.name} />
+                                      <span className="text-[11px] text-chillet-700/70 dark:text-chillet-200/60">
+                                        {(p.prob * 100).toFixed(0)}%
+                                      </span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ol>
+                      {graph && expanded && (
+                        <div className="mt-3">
+                          <PathBoardPreview
+                            nodes={graph.nodes}
+                            edges={graph.edges}
+                            ownedById={ownedById}
+                          />
+                        </div>
+                      )}
                     </div>
-                    <ol className="space-y-2">
-                      {path.map((s, j) => (
-                        <li
-                          key={j}
-                          className="flex items-center flex-wrap gap-1.5 text-sm border-l-2 border-mint-500 pl-3"
-                        >
-                          <span className="text-chillet-700/70 dark:text-chillet-200/60 w-6">{j + 1}.</span>
-                          <PalAvatar pal={s.parents[0]} size={24} />
-                          <span className="text-chillet-800 dark:text-chillet-100">{palName(s.parents[0], lang)}</span>
-                          <span className="text-chillet-500/60 dark:text-chillet-300/40">×</span>
-                          <PalAvatar pal={s.parents[1]} size={24} />
-                          <span className="text-chillet-800 dark:text-chillet-100">{palName(s.parents[1], lang)}</span>
-                          <span className="text-chillet-500/60 dark:text-chillet-300/40 mx-1">→</span>
-                          <PalAvatar pal={s.child} size={24} />
-                          <span className="font-medium">{palName(s.child, lang)}</span>
-                          {j === path.length - 1 && (
-                            <PalInfoLink pal={s.child} className="ml-1" />
-                          )}
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}
