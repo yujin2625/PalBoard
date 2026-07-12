@@ -1,9 +1,15 @@
 // Downloads pal icon PNGs from palworld.wiki.gg into public/pals/.
 // File naming on the wiki is `<English name with spaces → underscores>_icon.png`.
-// Some pals (esp. variants) may not exist — we record missing ones in a manifest.
+// The wiki lags behind new game updates (no page for freshly-added pals yet),
+// so we fall back to paldb.cc's CDN, keyed by the palcalc InternalName:
+// https://cdn.paldb.cc/image/Pal/Texture/PalIcon/Normal/T_<internal>_icon_normal.webp
+// Those come back as WebP and are converted to PNG (via sharp) to match the
+// existing file naming/extension. Pals missing from both sources are recorded
+// in the manifest.
 
 import fs from "node:fs";
 import path from "node:path";
+import sharp from "sharp";
 
 const root = path.resolve(process.cwd());
 const pals = JSON.parse(fs.readFileSync(path.join(root, "src/data/pals.json"), "utf8"));
@@ -15,18 +21,9 @@ const slug = (name) => name.replace(/ /g, "_");
 const missing = [];
 const ok = [];
 
-let i = 0;
-for (const p of pals) {
-  i++;
-  const dest = path.join(outDir, `${slug(p.name)}.png`);
-  if (fs.existsSync(dest) && fs.statSync(dest).size > 1024) {
-    ok.push(p.name);
-    continue;
-  }
+async function fetchWiki(p) {
   const url = `https://palworld.wiki.gg/images/${slug(p.name)}_icon.png`;
-  process.stdout.write(`[${i}/${pals.length}] ${p.name} … `);
   let attempt = 0;
-  let success = false;
   while (attempt < 5) {
     attempt++;
     try {
@@ -43,24 +40,52 @@ for (const p of pals) {
         await new Promise((r) => setTimeout(r, retryAfter * 1000));
         continue;
       }
-      if (!res.ok) {
-        console.log(`MISS ${res.status}`);
-        missing.push({ name: p.name, status: res.status });
-        break;
-      }
-      const buf = Buffer.from(await res.arrayBuffer());
-      fs.writeFileSync(dest, buf);
-      console.log(`ok ${(buf.length / 1024).toFixed(0)} KB`);
-      ok.push(p.name);
-      success = true;
-      break;
+      if (!res.ok) return { ok: false, status: res.status };
+      return { ok: true, buf: Buffer.from(await res.arrayBuffer()) };
     } catch (e) {
-      console.log("ERR", e.message);
       await new Promise((r) => setTimeout(r, 2000));
     }
   }
-  if (!success && attempt >= 5) {
-    missing.push({ name: p.name, status: "exhausted" });
+  return { ok: false, status: "exhausted" };
+}
+
+async function fetchPaldb(p) {
+  const url = `https://cdn.paldb.cc/image/Pal/Texture/PalIcon/Normal/T_${p.internal}_icon_normal.webp`;
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!res.ok) return { ok: false, status: res.status };
+    const webp = Buffer.from(await res.arrayBuffer());
+    const png = await sharp(webp).png().toBuffer();
+    return { ok: true, buf: png };
+  } catch (e) {
+    return { ok: false, status: e.message };
+  }
+}
+
+let i = 0;
+for (const p of pals) {
+  i++;
+  const dest = path.join(outDir, `${slug(p.name)}.png`);
+  if (fs.existsSync(dest) && fs.statSync(dest).size > 1024) {
+    ok.push(p.name);
+    continue;
+  }
+  process.stdout.write(`[${i}/${pals.length}] ${p.name} … `);
+
+  let result = await fetchWiki(p);
+  let source = "wiki";
+  if (!result.ok) {
+    result = await fetchPaldb(p);
+    source = "paldb";
+  }
+
+  if (result.ok) {
+    fs.writeFileSync(dest, result.buf);
+    console.log(`ok (${source}) ${(result.buf.length / 1024).toFixed(0)} KB`);
+    ok.push(p.name);
+  } else {
+    console.log(`MISS ${result.status}`);
+    missing.push({ name: p.name, status: result.status });
   }
   await new Promise((r) => setTimeout(r, 400));
 }

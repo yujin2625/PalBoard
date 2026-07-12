@@ -185,7 +185,7 @@ electron/
 mod/
   PalBoardExport/         # UE4SS 팰 내보내기 모드 (게스트 서버용)
 public/
-  pals/                   # 팰 아이콘 227개
+  pals/                   # 팰 아이콘 299개
   passives/               # 패시브 뱃지 자산 (위키 미러)
 scripts/                  # 데이터 갱신 + parse-save.mjs (세이브 파서 CLI 테스트)
 ```
@@ -198,7 +198,7 @@ scripts/                  # 데이터 갱신 + parse-save.mjs (세이브 파서 
 
 | 출처 | 용도 |
 | --- | --- |
-| [tylercamp/palcalc](https://github.com/tylercamp/palcalc) | 팰 메타 + 교배 페어 매핑(25,879건) |
+| [tylercamp/palcalc](https://github.com/tylercamp/palcalc) | 팰 메타 + 교배 페어 매핑(44,851건) |
 | [palworld.wiki.gg](https://palworld.wiki.gg) | 유전 시스템 룰, Paldeck, 팰 아이콘, 패시브 데이터/뱃지 스타일 |
 | [paldb.cc](https://paldb.cc) | 패시브 한국어 이름 |
 | [iebb/PalworldSaveEditor](https://github.com/iebb/PalworldSaveEditor) | 세이브 파서 (uesave WASM + ooz 압축 해제) — MIT |

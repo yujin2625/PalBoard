@@ -1,11 +1,11 @@
 {
   "source": "tylercamp/palcalc (db.json + breeding.json) + palworld.wiki.gg Palpedia cross-ref",
-  "palcalcDbVersion": "v22",
-  "fetchedAt": "2026-05-24",
-  "palCount": 227,
-  "pairCount": 25879,
+  "palcalcDbVersion": "v26",
+  "fetchedAt": "2026-07-12",
+  "palCount": 299,
+  "pairCount": 44851,
   "genderConstrainedPairs": 2,
-  "paldeckMatchedFromWiki": 216,
+  "paldeckMatchedFromWiki": 217,
   "wikiReference": "https://palworld.wiki.gg/wiki/Breeding",
   "palpediaReference": "https://palworld.wiki.gg/wiki/Palpedia",
   "breedingMechanic": {
