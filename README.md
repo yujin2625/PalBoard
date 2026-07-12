@@ -18,8 +18,10 @@ Windows / macOS / Linux에서 **설치 없이 실행 가능**한 개인용 팰 �
 
 | 파일 | 설치 | 사용 방식 |
 | --- | --- | --- |
-| `PalBoard Setup x.y.z.exe` | 설치 마법사 | 시작 메뉴 / 바탕화면 바로가기 자동 생성 |
-| `PalBoard x.y.z.exe` (portable) | 설치 안 함 | 더블클릭하면 바로 실행 (USB에 넣고 다녀도 OK) |
+| `PalBoard.Setup.x.y.z.exe` | 설치 마법사 | 시작 메뉴 / 바탕화면 바로가기 자동 생성 |
+| `PalBoard.x.y.z.exe` (portable) | 설치 안 함 | 더블클릭하면 바로 실행 (USB에 넣고 다녀도 OK) |
+
+> GitHub Release에 올리면 파일명의 공백이 마침표로 자동 치환됩니다 (`release/` 폴더의 원본 빌드 산출물은 공백 그대로).
 
 ### macOS / Linux
 
