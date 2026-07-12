@@ -127,6 +127,30 @@ export function pInheritSet(parentalPool: string[], desired: string[]): number {
   return pInheritSubset(parentalPool.length, desired.length);
 }
 
+/**
+ * All species genuinely reachable by breeding (gender ignored) from a small
+ * seed set, within `maxDepth` steps. Used to scope down which "catchable"
+ * placeholder species are actually worth exploring as breeding targets in
+ * `allShortestPaths` — deep-exploring all ~300 species regardless of
+ * relevance blows up combinatorially, but exploring only the ones that
+ * trace back to a specific required pal or passive source stays bounded.
+ */
+export function reachableSpeciesFrom(seedKeys: Set<PalKey>, maxDepth: number): Set<PalKey> {
+  const t = breedingTable();
+  let producible = new Set<number>([...seedKeys].map(indexOfKey).filter((i) => i >= 0));
+  for (let depth = 0; depth < maxDepth; depth++) {
+    const next = new Set(producible);
+    for (const [pairKey, child] of t) {
+      if (next.has(child)) continue;
+      const [a, b] = pairKey.split("-").map(Number);
+      if (producible.has(a) && producible.has(b)) next.add(child);
+    }
+    if (next.size === producible.size) break;
+    producible = next;
+  }
+  return new Set([...producible].map(keyOfIndex));
+}
+
 function binom(n: number, k: number): number {
   if (k < 0 || k > n) return 0;
   if (k === 0 || k === n) return 1;
@@ -232,7 +256,7 @@ export function allShortestPaths(
   targetKey: PalKey,
   maxDepth = 4,
   maxResults = 30,
-  options: { ignoreGender?: boolean } = {},
+  options: { ignoreGender?: boolean; catchableKeys?: Set<PalKey> } = {},
 ): PathStep[][] {
   const targetIdx = indexOfKey(targetKey);
   if (targetIdx < 0) return [];
@@ -244,6 +268,11 @@ export function allShortestPaths(
       ? [...owned].map((k) => ({ palKey: k, gender: "Unknown" }))
       : owned;
   const ignoreGender = !!options.ignoreGender;
+  // Species that are available as a fallback (e.g. "catch it in the wild")
+  // but aren't genuinely owned — unlike a real leaf, these should *also* be
+  // explored as breeding targets, since a longer chain through them might be
+  // the only way to route a required parent or a passive into the result.
+  const catchableKeys = options.catchableKeys ?? new Set<PalKey>();
 
   // Even when the user already owns the target, we still want to enumerate
   // breeding routes that produce it (so they can breed more / pass on
@@ -337,20 +366,27 @@ export function allShortestPaths(
   const memo = new Map<string, PathStep[][]>();
 
   function pathsFor(idx: number, budget: number): PathStep[][] {
-    if (effectiveOwned.has(keyOfIndex(idx))) return [[]];
+    const key = keyOfIndex(idx);
+    const catchable = catchableKeys.has(key);
+    // A genuinely-owned leaf never needs an alternate ancestry. A merely
+    // "catchable" one might — fall through to also explore its breeding
+    // pairs below, with catching itself as one more option in the mix.
+    if (effectiveOwned.has(key) && !catchable) return [[]];
     const d = minSteps.get(idx);
-    if (d == null || d > budget) return [];
+    if (!catchable && (d == null || d > budget)) return [];
     const cacheKey = `${idx}:${budget}`;
     const cached = memo.get(cacheKey);
     if (cached) return cached;
 
-    const childPal = palByKey(keyOfIndex(idx));
-    if (!childPal) {
-      memo.set(cacheKey, []);
-      return [];
+    const results: PathStep[][] = [];
+    if (catchable) results.push([]);
+
+    const childPal = palByKey(key);
+    if (!childPal || budget <= 0) {
+      memo.set(cacheKey, results);
+      return results;
     }
     const pairs = parentsByChild.get(idx) ?? [];
-    const results: PathStep[][] = [];
     outer: for (const [a, b] of pairs) {
       const da = minSteps.get(a);
       const db = minSteps.get(b);

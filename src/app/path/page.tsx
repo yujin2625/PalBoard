@@ -6,6 +6,7 @@ import { Select } from "@/components/Select";
 import {
   allShortestPaths,
   pInheritSet,
+  reachableSpeciesFrom,
   suggestAcquisitions,
   type OwnedAtom,
   type PathStep,
@@ -37,12 +38,13 @@ type Result = {
 } | null;
 
 // When a required pal or desired-passive combo is set we can't just take
-// the shortest N paths — the ones that satisfy the filter might be further
-// down the list — so we pull a much larger pool first and filter, then cap
-// for display. Some pals have upwards of 1,280 direct parent pairs, so this
-// has to be bigger than that to guarantee a specific owned combo isn't cut
-// off before it's even considered.
-const REQUIRED_POOL_SIZE = 1500;
+// the shortest N paths — the ones that satisfy the filter might be far down
+// the list, especially once a combo needs to route through two independent
+// constraints (a specific required parent *and* a specific passive source)
+// at once — the qualifying route is often a multi-step one buried among
+// many same-length alternatives that don't satisfy either constraint. So we
+// pull a much larger pool first and filter/rank, then cap for display.
+const REQUIRED_POOL_SIZE = 100000;
 
 export default function PathPage() {
   const t = useT();
@@ -78,7 +80,6 @@ export default function PathPage() {
     }
     return [...ownedAtoms, ...extra];
   }, [includeUnowned, ownedAtoms, ownedKeys]);
-
   const [result, setResult] = useState<Result>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -97,10 +98,26 @@ export default function PathPage() {
         // enumeration (especially with unowned species included, where a
         // flood of passive-less placeholder paths can otherwise crowd out
         // every path that actually has passive data to filter/rank by).
-        const poolSize =
-          requiredPal || desiredPassives.length > 0 ? REQUIRED_POOL_SIZE : maxResults + 1;
+        const needsDeepSearch = !!requiredPal || desiredPassives.length > 0;
+        const poolSize = needsDeepSearch ? REQUIRED_POOL_SIZE : maxResults + 1;
+
+        // Deep-exploring all ~300 catchable species' own ancestries (instead
+        // of just "catch it") blows up combinatorially, and the vast
+        // majority are irrelevant to whatever we're filtering by anyway.
+        // Scope it down to species that actually trace back to real owned
+        // material (or the required pal) — that's the only way a required
+        // pal or a passive from a real owned pal can end up routed through
+        // a multi-step chain instead of a dead-end direct catch.
+        let deepCatchableKeys: Set<PalKey> | undefined;
+        if (needsDeepSearch && includeUnowned) {
+          const realSeed = new Set(ownedKeys);
+          if (requiredPal) realSeed.add(requiredPal);
+          deepCatchableKeys = reachableSpeciesFrom(realSeed, maxDepth);
+        }
+
         const rawPaths = allShortestPaths(searchAtoms, target, maxDepth, poolSize, {
           ignoreGender,
+          catchableKeys: deepCatchableKeys,
         });
         const afterRequired = requiredPal
           ? rawPaths.filter((path) =>
