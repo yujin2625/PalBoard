@@ -5,6 +5,7 @@ import { PalPicker } from "@/components/PalPicker";
 import { Select } from "@/components/Select";
 import {
   allShortestPaths,
+  pInheritSet,
   suggestAcquisitions,
   type OwnedAtom,
   type PathStep,
@@ -18,6 +19,7 @@ import type { OwnedPal, Pal, PalKey } from "@/lib/types";
 import { PalAvatar } from "@/components/PalAvatar";
 import { PalInfoLink } from "@/components/PalInfoLink";
 import { PassiveBadge } from "@/components/PassiveBadge";
+import { PassivePicker } from "@/components/PassivePicker";
 import { PathBoardPreview } from "@/components/board/PathBoardPreview";
 import { palName, useLang, useT } from "@/lib/i18n";
 
@@ -36,6 +38,7 @@ export default function PathPage() {
   const [maxDepth, setMaxDepth] = useState(3);
   const [maxResults, setMaxResults] = useState(10);
   const [ignoreGender, setIgnoreGender] = useState(false);
+  const [desiredPassives, setDesiredPassives] = useState<string[]>([]);
 
   const ownedKeys = useMemo<Set<PalKey>>(
     () => new Set(pals.map((p) => p.palKey)),
@@ -102,6 +105,33 @@ export default function PathPage() {
     [result, pals, ownedById],
   );
 
+  // Probability the final target pal ends up with every passive the user
+  // picked, using the last step's resolved passive pool. null when no
+  // desired passives are selected (nothing to rank/report).
+  const desiredProbs = useMemo(() => {
+    if (desiredPassives.length === 0) return null;
+    return (result?.paths ?? []).map((path, i) => {
+      if (path.length === 0) return 0;
+      const graph = pathGraphs[i];
+      const r = graph?.resolutions.get(graph.stepNodeIds[path.length - 1]);
+      return pInheritSet(r?.passivePool ?? [], desiredPassives);
+    });
+  }, [result, pathGraphs, desiredPassives]);
+
+  // Display order: ranked by desired-passive odds (best first) when the
+  // user picked a target passive combo, otherwise the original shortest-
+  // path-first order.
+  const displayOrder = useMemo(() => {
+    const n = result?.paths.length ?? 0;
+    const order = Array.from({ length: n }, (_, i) => i);
+    if (!desiredProbs) return order;
+    return order.sort((a, b) => {
+      const d = desiredProbs[b] - desiredProbs[a];
+      if (d !== 0) return d;
+      return (result?.paths[a].length ?? 0) - (result?.paths[b].length ?? 0);
+    });
+  }, [result, desiredProbs]);
+
   const { active: activeBoard, updateBoard } = useBoards();
   const [expandedPaths, setExpandedPaths] = useState<Set<number>>(new Set());
   const [addedPaths, setAddedPaths] = useState<Set<number>>(new Set());
@@ -144,6 +174,12 @@ export default function PathPage() {
         <div className="w-72">
           <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">{t("path.target")}</label>
           <PalPicker value={target} onChange={setTarget} />
+        </div>
+        <div className="w-72">
+          <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">
+            {t("path.desiredPassives")}
+          </label>
+          <PassivePicker value={desiredPassives} onChange={setDesiredPassives} max={4} />
         </div>
         <div>
           <label className="block text-xs text-chillet-700/70 dark:text-chillet-200/60 mb-1">{t("path.maxDepth")}</label>
@@ -212,18 +248,20 @@ export default function PathPage() {
                 )}
               </div>
               <div className="space-y-3">
-                {result.paths.map((path, i) => {
+                {displayOrder.map((i, rank) => {
+                  const path = result.paths[i];
                   const graph = pathGraphs[i];
                   const expanded = expandedPaths.has(i);
                   const added = addedPaths.has(i);
+                  const desiredProb = desiredProbs?.[i];
                   return (
                     <div
                       key={i}
                       className="rounded-lg border border-chillet-200/70 dark:border-chillet-800/60 bg-white dark:bg-chillet-900 p-4"
                     >
-                      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                      <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
                         <div className="text-xs font-medium text-chillet-700 dark:text-chillet-200">
-                          {t("path.pathHeader", { idx: i + 1, n: path.length })}
+                          {t("path.pathHeader", { idx: rank + 1, n: path.length })}
                         </div>
                         {graph && (
                           <div className="flex items-center gap-2">
@@ -245,6 +283,24 @@ export default function PathPage() {
                           </div>
                         )}
                       </div>
+                      {desiredProb != null && (
+                        <div
+                          className={`mb-3 text-xs flex flex-wrap items-center gap-1.5 ${
+                            desiredProb > 0
+                              ? "text-mint-700 dark:text-mint-300"
+                              : "text-berry-500 dark:text-berry-300"
+                          }`}
+                        >
+                          <span className="font-medium">
+                            {t("path.desiredProb", { p: (desiredProb * 100).toFixed(1) })}
+                          </span>
+                          <span className="flex flex-wrap gap-1">
+                            {desiredPassives.map((p) => (
+                              <PassiveBadge key={p} name={p} />
+                            ))}
+                          </span>
+                        </div>
+                      )}
                       <ol className="space-y-2">
                         {path.map((s, j) => {
                           const r = graph?.resolutions.get(graph.stepNodeIds[j]);
@@ -269,7 +325,14 @@ export default function PathPage() {
                                 <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                                   {top.map((p) => (
                                     <span key={p.name} className="flex items-center gap-1">
-                                      <PassiveBadge name={p.name} />
+                                      <PassiveBadge
+                                        name={p.name}
+                                        className={
+                                          desiredPassives.includes(p.name)
+                                            ? "ring-2 ring-mint-500"
+                                            : ""
+                                        }
+                                      />
                                       <span className="text-[11px] text-chillet-700/70 dark:text-chillet-200/60">
                                         {(p.prob * 100).toFixed(0)}%
                                       </span>

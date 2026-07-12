@@ -275,6 +275,8 @@ const dict: Record<Lang, Dict> = {
     "path.hideBoard": "접기",
     "path.addToBoard": "화이트보드에 추가",
     "path.added": "✓ 추가됨",
+    "path.desiredPassives": "원하는 패시브 (선택)",
+    "path.desiredProb": "목표 패시브 확률: {p}%",
 
     "info.title": "팰월드 유전 시스템",
     "info.sources.prefix": "본 자료의 출처:",
@@ -523,6 +525,8 @@ const dict: Record<Lang, Dict> = {
     "path.hideBoard": "Hide",
     "path.addToBoard": "Add to whiteboard",
     "path.added": "✓ Added",
+    "path.desiredPassives": "Desired passives (optional)",
+    "path.desiredProb": "Target passive odds: {p}%",
 
     "info.title": "Palworld breeding mechanics",
     "info.sources.prefix": "Sources:",

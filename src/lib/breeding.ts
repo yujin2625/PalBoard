@@ -114,6 +114,19 @@ export function pInheritOne(parentalPool: string[], passive: string): number {
   return pInheritSubset(parentalPool.length, 1);
 }
 
+/**
+ * Probability the child ends up with every passive in `desired` (a chosen
+ * target set). Returns 0 if any of them isn't even in the parental pool —
+ * pure inheritance can't produce it (a separate random-slot roll could in
+ * principle, but that's not something the player can aim for).
+ */
+export function pInheritSet(parentalPool: string[], desired: string[]): number {
+  if (desired.length === 0) return 1;
+  const pool = new Set(parentalPool);
+  if (!desired.every((d) => pool.has(d))) return 0;
+  return pInheritSubset(parentalPool.length, desired.length);
+}
+
 function binom(n: number, k: number): number {
   if (k < 0 || k > n) return 0;
   if (k === 0 || k === n) return 1;
