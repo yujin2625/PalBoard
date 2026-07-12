@@ -31,12 +31,18 @@ type Result = {
   /** Target is reachable, but no path within the searched pool used the
    * required pal — distinct from genuine unreachability. */
   requiredPalMiss: boolean;
+  /** A required pal (if any) was satisfiable, but no path in the pool
+   * achieves the desired passive combo. */
+  desiredPassiveMiss: boolean;
 } | null;
 
-// When a required pal is set we can't just take the shortest N paths —
-// the ones that happen to include it might be further down the list — so
-// we pull a much larger pool first and filter, then cap for display.
-const REQUIRED_POOL_SIZE = 300;
+// When a required pal or desired-passive combo is set we can't just take
+// the shortest N paths — the ones that satisfy the filter might be further
+// down the list — so we pull a much larger pool first and filter, then cap
+// for display. Some pals have upwards of 1,280 direct parent pairs, so this
+// has to be bigger than that to guarantee a specific owned combo isn't cut
+// off before it's even considered.
+const REQUIRED_POOL_SIZE = 1500;
 
 export default function PathPage() {
   const t = useT();
@@ -85,21 +91,47 @@ export default function PathPage() {
     const handle = setTimeout(() => {
       startTransition(() => {
         // Enumerate up to (maxResults + 1) so we can detect the "capped" case
-        // — or a much larger pool when a required pal is set, since the
-        // paths that happen to include it aren't necessarily the shortest
-        // ones and could be missed by a small enumeration.
-        const poolSize = requiredPal ? REQUIRED_POOL_SIZE : maxResults + 1;
+        // — or a much larger pool when a required pal or desired-passive
+        // combo is set, since the paths that satisfy those filters aren't
+        // necessarily the shortest ones and could be missed by a small
+        // enumeration (especially with unowned species included, where a
+        // flood of passive-less placeholder paths can otherwise crowd out
+        // every path that actually has passive data to filter/rank by).
+        const poolSize =
+          requiredPal || desiredPassives.length > 0 ? REQUIRED_POOL_SIZE : maxResults + 1;
         const rawPaths = allShortestPaths(searchAtoms, target, maxDepth, poolSize, {
           ignoreGender,
         });
-        const paths = requiredPal
+        const afterRequired = requiredPal
           ? rawPaths.filter((path) =>
               path.some((s) => s.parents[0].key === requiredPal || s.parents[1].key === requiredPal),
             )
           : rawPaths;
-        const requiredPalMiss = !!requiredPal && rawPaths.length > 0 && paths.length === 0;
-        const capped = paths.length > maxResults;
-        const displayed = capped ? paths.slice(0, maxResults) : paths;
+        const requiredPalMiss = !!requiredPal && rawPaths.length > 0 && afterRequired.length === 0;
+
+        // Rank the full candidate pool by desired-passive odds and drop the
+        // zero-probability ones BEFORE truncating to maxResults — otherwise
+        // an arbitrary top-N slice could end up containing only paths that
+        // can't produce the combo (see poolSize note above).
+        let afterPassive = afterRequired;
+        let desiredPassiveMiss = false;
+        if (desiredPassives.length > 0 && afterRequired.length > 0) {
+          const ownedByIdForScoring = new Map(pals.map((p) => [p.id, p]));
+          const scored = afterRequired.map((path) => {
+            const { nodes, edges, stepNodeIds } = pathToBoardGraph(path, pals);
+            const resolutions = resolveBoard(nodes, edges, ownedByIdForScoring);
+            const r = resolutions.get(stepNodeIds[path.length - 1]);
+            return { path, prob: pInheritSet(r?.passivePool ?? [], desiredPassives) };
+          });
+          afterPassive = scored
+            .filter((s) => s.prob > 0)
+            .sort((a, b) => b.prob - a.prob || a.path.length - b.path.length)
+            .map((s) => s.path);
+          desiredPassiveMiss = afterPassive.length === 0;
+        }
+
+        const capped = afterPassive.length > maxResults;
+        const displayed = capped ? afterPassive.slice(0, maxResults) : afterPassive;
 
         // "Catch this pal" suggestions don't make sense once every species
         // is already being considered — if it's still unreachable there,
@@ -109,18 +141,36 @@ export default function PathPage() {
         if (!includeUnowned) {
           if (rawPaths.length === 0) {
             unlockSuggestions = suggestAcquisitions(ownedKeys, target, maxDepth);
-          } else if (paths.length > 0 && paths[0].length > 0) {
-            const shortest = paths[0].length;
+          } else if (afterPassive.length > 0 && afterPassive[0].length > 0) {
+            const shortest = afterPassive[0].length;
             easierSuggestions = suggestAcquisitions(ownedKeys, target, shortest).filter(
               (p) => !ownedKeys.has(p.key),
             );
           }
         }
-        setResult({ paths: displayed, unlockSuggestions, easierSuggestions, capped, requiredPalMiss });
+        setResult({
+          paths: displayed,
+          unlockSuggestions,
+          easierSuggestions,
+          capped,
+          requiredPalMiss,
+          desiredPassiveMiss,
+        });
       });
     }, 0);
     return () => clearTimeout(handle);
-  }, [ownedKeys, searchAtoms, target, maxDepth, maxResults, ignoreGender, requiredPal, includeUnowned]);
+  }, [
+    ownedKeys,
+    searchAtoms,
+    target,
+    maxDepth,
+    maxResults,
+    ignoreGender,
+    requiredPal,
+    includeUnowned,
+    desiredPassives,
+    pals,
+  ]);
 
   const computing = isPending || (target !== undefined && result === null);
 
@@ -156,22 +206,6 @@ export default function PathPage() {
       return pInheritSet(r?.passivePool ?? [], desiredPassives);
     });
   }, [result, pathGraphs, desiredPassives]);
-
-  // Display order: ranked by desired-passive odds (best first) when the
-  // user picked a target passive combo, otherwise the original shortest-
-  // path-first order. Paths that can't possibly produce the combo (0%) are
-  // dropped rather than shown at the bottom — they're not a usable answer.
-  const displayOrder = useMemo(() => {
-    const n = result?.paths.length ?? 0;
-    let order = Array.from({ length: n }, (_, i) => i);
-    if (!desiredProbs) return order;
-    order = order.filter((i) => desiredProbs[i] > 0);
-    return order.sort((a, b) => {
-      const d = desiredProbs[b] - desiredProbs[a];
-      if (d !== 0) return d;
-      return (result?.paths[a].length ?? 0) - (result?.paths[b].length ?? 0);
-    });
-  }, [result, desiredProbs]);
 
   const { active: activeBoard, updateBoard } = useBoards();
   const [expandedPaths, setExpandedPaths] = useState<Set<number>>(new Set());
@@ -305,23 +339,23 @@ export default function PathPage() {
           )}
           {result.paths.length === 0 ? (
             <div className="rounded-lg border border-berry-300 bg-berry-300/15 dark:bg-berry-500/15 dark:border-berry-500/40 p-4 text-sm">
-              {result.requiredPalMiss ? t("path.requiredMiss") : t("path.unreachable", { n: maxDepth })}
-            </div>
-          ) : displayOrder.length === 0 ? (
-            <div className="rounded-lg border border-berry-300 bg-berry-300/15 dark:bg-berry-500/15 dark:border-berry-500/40 p-4 text-sm">
-              {t("path.noPassiveMatch")}
+              {result.requiredPalMiss
+                ? t("path.requiredMiss")
+                : result.desiredPassiveMiss
+                  ? t("path.noPassiveMatch")
+                  : t("path.unreachable", { n: maxDepth })}
             </div>
           ) : (
             <>
               <div className="text-sm text-chillet-700/70 dark:text-chillet-200/60">
-                {t("path.pathsFound", { n: displayOrder.length })}
+                {t("path.pathsFound", { n: result.paths.length })}
                 {result.capped && (
                   <span className="ml-2 text-berry-500">• {t("path.morePaths")}</span>
                 )}
               </div>
               <div className="space-y-3">
-                {displayOrder.map((i, rank) => {
-                  const path = result.paths[i];
+                {result.paths.map((path, i) => {
+                  const rank = i;
                   const graph = pathGraphs[i];
                   const expanded = expandedPaths.has(i);
                   const added = addedPaths.has(i);
