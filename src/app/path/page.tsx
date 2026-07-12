@@ -13,7 +13,7 @@ import {
 import { resolveBoard } from "@/lib/board-compute";
 import { pathToBoardGraph } from "@/lib/path-to-board";
 import { useBoards } from "@/lib/board-store";
-import { META, palDexLabel } from "@/lib/pal-data";
+import { META, PALS, palDexLabel } from "@/lib/pal-data";
 import { useOwnedPals } from "@/lib/storage";
 import type { OwnedPal, Pal, PalKey } from "@/lib/types";
 import { PalAvatar } from "@/components/PalAvatar";
@@ -46,6 +46,7 @@ export default function PathPage() {
   const [maxDepth, setMaxDepth] = useState(3);
   const [maxResults, setMaxResults] = useState(10);
   const [ignoreGender, setIgnoreGender] = useState(false);
+  const [includeUnowned, setIncludeUnowned] = useState(false);
   const [desiredPassives, setDesiredPassives] = useState<string[]>([]);
   const [requiredPal, setRequiredPal] = useState<string | undefined>();
 
@@ -57,6 +58,20 @@ export default function PathPage() {
     () => pals.map((p) => ({ palKey: p.palKey, gender: p.gender })),
     [pals],
   );
+  // With "include unowned" on, every species becomes a valid starting point
+  // for the search — two Unknown-sex placeholders per species (so a
+  // same-species-only pal can still pair with "itself") layered on top of
+  // the real owned individuals, whose actual sex we keep using.
+  const searchAtoms = useMemo<OwnedAtom[]>(() => {
+    if (!includeUnowned) return ownedAtoms;
+    const owned = ownedKeys;
+    const extra: OwnedAtom[] = [];
+    for (const p of PALS) {
+      if (owned.has(p.key)) continue;
+      extra.push({ palKey: p.key, gender: "Unknown" }, { palKey: p.key, gender: "Unknown" });
+    }
+    return [...ownedAtoms, ...extra];
+  }, [includeUnowned, ownedAtoms, ownedKeys]);
 
   const [result, setResult] = useState<Result>(null);
   const [isPending, startTransition] = useTransition();
@@ -74,7 +89,7 @@ export default function PathPage() {
         // paths that happen to include it aren't necessarily the shortest
         // ones and could be missed by a small enumeration.
         const poolSize = requiredPal ? REQUIRED_POOL_SIZE : maxResults + 1;
-        const rawPaths = allShortestPaths(ownedAtoms, target, maxDepth, poolSize, {
+        const rawPaths = allShortestPaths(searchAtoms, target, maxDepth, poolSize, {
           ignoreGender,
         });
         const paths = requiredPal
@@ -86,21 +101,26 @@ export default function PathPage() {
         const capped = paths.length > maxResults;
         const displayed = capped ? paths.slice(0, maxResults) : paths;
 
+        // "Catch this pal" suggestions don't make sense once every species
+        // is already being considered — if it's still unreachable there,
+        // nothing left to catch would help.
         let unlockSuggestions: Pal[] = [];
         let easierSuggestions: Pal[] = [];
-        if (rawPaths.length === 0) {
-          unlockSuggestions = suggestAcquisitions(ownedKeys, target, maxDepth);
-        } else if (paths.length > 0 && paths[0].length > 0) {
-          const shortest = paths[0].length;
-          easierSuggestions = suggestAcquisitions(ownedKeys, target, shortest).filter(
-            (p) => !ownedKeys.has(p.key),
-          );
+        if (!includeUnowned) {
+          if (rawPaths.length === 0) {
+            unlockSuggestions = suggestAcquisitions(ownedKeys, target, maxDepth);
+          } else if (paths.length > 0 && paths[0].length > 0) {
+            const shortest = paths[0].length;
+            easierSuggestions = suggestAcquisitions(ownedKeys, target, shortest).filter(
+              (p) => !ownedKeys.has(p.key),
+            );
+          }
         }
         setResult({ paths: displayed, unlockSuggestions, easierSuggestions, capped, requiredPalMiss });
       });
     }, 0);
     return () => clearTimeout(handle);
-  }, [ownedKeys, ownedAtoms, target, maxDepth, maxResults, ignoreGender, requiredPal]);
+  }, [ownedKeys, searchAtoms, target, maxDepth, maxResults, ignoreGender, requiredPal, includeUnowned]);
 
   const computing = isPending || (target !== undefined && result === null);
 
@@ -245,8 +265,18 @@ export default function PathPage() {
           />
           {t("path.ignoreGender")}
         </label>
+        <label className="flex items-center gap-1.5 text-xs text-chillet-700/80 dark:text-chillet-200/70 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={includeUnowned}
+            onChange={(e) => setIncludeUnowned(e.target.checked)}
+          />
+          {t("path.includeUnowned")}
+        </label>
         <div className="text-xs text-chillet-700/70 dark:text-chillet-200/60">
-          {t("path.ownedCount", { n: ownedKeys.size })}
+          {includeUnowned
+            ? t("path.ownedCount.all", { n: META.palCount })
+            : t("path.ownedCount", { n: ownedKeys.size })}
         </div>
       </div>
 
@@ -256,9 +286,11 @@ export default function PathPage() {
           <div>
             <div className="text-sm font-medium">{t("path.computing")}</div>
             <div className="text-xs text-chillet-700/70 dark:text-chillet-200/60">
-              {ownedKeys.size === 0
-                ? t("path.computing.empty", { n: META.palCount })
-                : t("path.computing.normal", { n: ownedKeys.size, d: maxDepth })}
+              {includeUnowned
+                ? t("path.computing.allSpecies", { n: META.palCount, d: maxDepth })
+                : ownedKeys.size === 0
+                  ? t("path.computing.empty", { n: META.palCount })
+                  : t("path.computing.normal", { n: ownedKeys.size, d: maxDepth })}
             </div>
           </div>
         </div>
