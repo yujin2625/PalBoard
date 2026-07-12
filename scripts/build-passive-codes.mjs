@@ -5,24 +5,21 @@
 // The PalBoard companion mod dumps raw internal passive codes; this table is
 // how the app turns them into the human names it stores on owned pals.
 //
-// Source: KrisCris/Palworld-Pal-Editor (assets/data/pal_passives.json), whose
-// English names are cross-checked to be a 1:1 match with our passives.json.
-//
-// Usage:
-//   curl -L -o tmp/kriscris-passives.json \
-//     "https://raw.githubusercontent.com/KrisCris/Palworld-Pal-Editor/develop/src/palworld_pal_editor/assets/data/pal_passives.json"
-//   node scripts/build-passive-codes.mjs
+// Source: tmp/palcalc-db.json's PassiveSkills (InternalName -> Name), the
+// same file build-passives.mjs reads — so the two never drift out of sync,
+// and both stay current as soon as palcalc's DB picks up a new patch.
 
 import { readFileSync, writeFileSync } from "node:fs";
 
-const SRC = "tmp/kriscris-passives.json";
+const SRC = "tmp/palcalc-db.json";
 const OUT = "src/data/passive-codes.json";
 
-const kc = JSON.parse(readFileSync(SRC, "utf8"));
+const db = JSON.parse(readFileSync(SRC, "utf8"));
 const map = {};
-for (const code of Object.keys(kc).sort()) {
-  const en = kc[code]?.I18n?.en?.Name;
-  if (en) map[code] = en;
+for (const p of db.PassiveSkills) {
+  if (!p.IsStandardPassiveSkill || !p.InternalName || !p.Name) continue;
+  map[p.InternalName] = p.Name;
 }
-writeFileSync(OUT, JSON.stringify(map) + "\n");
-console.log(`Wrote ${OUT} with ${Object.keys(map).length} passive codes.`);
+const sorted = Object.fromEntries(Object.keys(map).sort().map((k) => [k, map[k]]));
+writeFileSync(OUT, JSON.stringify(sorted) + "\n");
+console.log(`Wrote ${OUT} with ${Object.keys(sorted).length} passive codes.`);

@@ -131,31 +131,19 @@ npm run dist             # win + linux 동시
 게임 패치로 팰/교배표가 바뀌면 다음 명령으로 데이터를 다시 받아 빌드합니다.
 
 ```bash
-# 팰 메타 + 교배 페어 매핑 (palcalc)
+# 팰 메타 + 교배 페어 매핑 + 패시브 정보 전부 (palcalc — 한국어 번역 포함, 패치 당일 갱신됨)
 curl -L -o tmp/palcalc-db.json       https://raw.githubusercontent.com/tylercamp/palcalc/master/PalCalc.Model/db.json
 curl -L -o tmp/palcalc-breeding.json https://raw.githubusercontent.com/tylercamp/palcalc/master/PalCalc.Model/breeding.json
 
-# 위키의 정식 Paldeck 라벨
+# 위키의 정식 Paldeck 라벨 (신규 팰은 위키가 며칠~몇 주 늦게 따라옴 — 없으면 dexNo로 폴백)
 curl -L -A "PalBoard/1.0" -o tmp/cargo-pal-full.json \
   "https://palworld.wiki.gg/api.php?action=cargoquery&tables=Pal&fields=_pageName=page,palName,paldeckNumber,palSize&limit=500&order_by=paldeckNumber&format=json"
 
-# 패시브 정보
-curl -L -A "PalBoard/1.0" -o tmp/passives.json \
-  "https://palworld.wiki.gg/api.php?action=cargoquery&tables=PassiveSkill&fields=_pageName=page,passiveSkillName,rank,description&limit=500&format=json"
-
-# 패시브 한국어 이름 (paldb.cc)
-curl -L -A "Mozilla/5.0" -o tmp/paldb-passives-en.html "https://paldb.cc/en/Passive_Skills"
-curl -L -A "Mozilla/5.0" -o tmp/paldb-passives.html    "https://paldb.cc/ko/Passive_Skills"
-
-# 가져오기용 패시브 내부코드→이름 매핑 (KrisCris/Palworld-Pal-Editor)
-curl -L -o tmp/kriscris-passives.json \
-  "https://raw.githubusercontent.com/KrisCris/Palworld-Pal-Editor/develop/src/palworld_pal_editor/assets/data/pal_passives.json"
-
 # 빌드
 node scripts/build-data.mjs           # pals.json + breeding.json
-node scripts/build-passives.mjs       # passives.json (한국어 매핑 포함)
-node scripts/build-passive-codes.mjs  # passive-codes.json (내부코드→이름, 세이브/모드 가져오기용)
-node scripts/download-icons.mjs       # public/pals/ 아이콘 갱신 (incremental)
+node scripts/build-passives.mjs       # passives.json (palcalc 자체 한국어 번역 사용)
+node scripts/build-passive-codes.mjs  # passive-codes.json (내부코드→이름, 세이브/모드 가져오기용, 역시 palcalc 소스)
+node scripts/download-icons.mjs       # public/pals/ 아이콘 갱신 — 위키 우선, 없으면 paldb.cc CDN 폴백 (incremental)
 ```
 
 ### 디렉토리 구조
@@ -198,11 +186,10 @@ scripts/                  # 데이터 갱신 + parse-save.mjs (세이브 파서 
 
 | 출처 | 용도 |
 | --- | --- |
-| [tylercamp/palcalc](https://github.com/tylercamp/palcalc) | 팰 메타 + 교배 페어 매핑(44,851건) |
-| [palworld.wiki.gg](https://palworld.wiki.gg) | 유전 시스템 룰, Paldeck, 팰 아이콘, 패시브 데이터/뱃지 스타일 |
-| [paldb.cc](https://paldb.cc) | 패시브 한국어 이름 |
+| [tylercamp/palcalc](https://github.com/tylercamp/palcalc) | 팰 메타 + 교배 페어 매핑(44,851건) + 패시브 정보(한국어 번역 포함) |
+| [palworld.wiki.gg](https://palworld.wiki.gg) | 유전 시스템 룰, Paldeck, 팰 아이콘(1차), 뱃지 스타일 |
+| [paldb.cc](https://paldb.cc) | 팰 아이콘 — 위키에 아직 없는 신규 팰용 폴백 |
 | [iebb/PalworldSaveEditor](https://github.com/iebb/PalworldSaveEditor) | 세이브 파서 (uesave WASM + ooz 압축 해제) — MIT |
-| [KrisCris/Palworld-Pal-Editor](https://github.com/KrisCris/Palworld-Pal-Editor) | 패시브 내부코드→이름 매핑 |
 | [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) | 게임에서 가져오기 모드 실행 기반 |
 
 데이터 버전과 가져온 날짜는 [src/data/meta.json](src/data/meta.json)과 앱 내 `유전 정보` 페이지에서 확인할 수 있습니다.
