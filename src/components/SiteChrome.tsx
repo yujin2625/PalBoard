@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useT } from "@/lib/i18n";
+import { assetPath } from "@/lib/assets";
 import { LangToggle } from "./LangToggle";
 import { Settings } from "./Settings";
 
@@ -27,7 +28,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
           <Link href="/" className="flex items-center gap-2.5 font-bold tracking-tight">
             <span className="relative inline-block h-9 w-9 animate-bob">
               <Image
-                src="/pals/Chillet.png"
+                src={assetPath("/pals/Chillet.png")}
                 alt="Chillet"
                 fill
                 sizes="36px"

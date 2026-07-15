@@ -2,6 +2,7 @@ import palsJson from "@/data/pals.json";
 import breedingJson from "@/data/breeding.json";
 import metaJson from "@/data/meta.json";
 import type { BreedingMeta, Pal, PalKey } from "./types";
+import { assetPath } from "./assets";
 
 export const PALS: readonly Pal[] = palsJson as Pal[];
 export const META: BreedingMeta = metaJson as BreedingMeta;
@@ -20,7 +21,7 @@ export function palByInternal(name: string): Pal | undefined {
 
 /** Local icon path served from /public/pals/. */
 export function palIconUrl(pal: Pal): string {
-  return `/pals/${pal.name.replace(/ /g, "_")}.png`;
+  return assetPath(`/pals/${pal.name.replace(/ /g, "_")}.png`);
 }
 
 /** "#005B" if the wiki has a Paldeck ID, otherwise "#13" using palcalc dexNo. */
