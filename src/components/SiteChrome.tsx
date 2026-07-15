@@ -24,8 +24,8 @@ export function SiteChrome({ children }: { children: ReactNode }) {
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-chillet-200/70 dark:border-chillet-800/60 bg-white/70 dark:bg-chillet-950/70 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2.5 font-bold tracking-tight">
+        <div className="max-w-6xl mx-auto px-4 min-h-16 py-2 sm:py-0 sm:h-16 flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-2 sm:gap-6">
+          <Link href="/" className="flex items-center gap-2.5 font-bold tracking-tight shrink-0">
             <span className="relative inline-block h-9 w-9 animate-bob">
               <Image
                 src={assetPath("/pals/Chillet.png")}
@@ -40,18 +40,18 @@ export function SiteChrome({ children }: { children: ReactNode }) {
               PalBoard
             </span>
           </Link>
-          <nav className="flex gap-1 text-sm">
+          <nav className="order-last w-full sm:order-none sm:w-auto flex gap-1 text-sm overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
             {nav.map((n) => (
               <Link
                 key={n.href}
                 href={n.href}
-                className="px-3 py-1.5 rounded-full text-chillet-800/80 dark:text-chillet-100/80 hover:bg-chillet-100 dark:hover:bg-chillet-800/60 hover:text-chillet-900 dark:hover:text-white transition-colors"
+                className="shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-chillet-800/80 dark:text-chillet-100/80 hover:bg-chillet-100 dark:hover:bg-chillet-800/60 hover:text-chillet-900 dark:hover:text-white transition-colors"
               >
                 {t(n.key)}
               </Link>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-3 shrink-0">
             <LangToggle />
             <Settings />
           </div>
