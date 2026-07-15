@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PalPicker } from "@/components/PalPicker";
 import { Select } from "@/components/Select";
 import {
@@ -23,6 +23,7 @@ import { PassiveBadge } from "@/components/PassiveBadge";
 import { PassivePicker } from "@/components/PassivePicker";
 import { PathBoardPreview } from "@/components/board/PathBoardPreview";
 import { palName, useLang, useT } from "@/lib/i18n";
+import { usePersistentState } from "@/lib/persistent-state";
 
 type Result = {
   paths: PathStep[][];
@@ -50,13 +51,13 @@ export default function PathPage() {
   const t = useT();
   const { lang } = useLang();
   const { pals, loaded } = useOwnedPals();
-  const [target, setTarget] = useState<string | undefined>();
-  const [maxDepth, setMaxDepth] = useState(3);
-  const [maxResults, setMaxResults] = useState(10);
-  const [ignoreGender, setIgnoreGender] = useState(false);
-  const [includeUnowned, setIncludeUnowned] = useState(false);
-  const [desiredPassives, setDesiredPassives] = useState<string[]>([]);
-  const [requiredPal, setRequiredPal] = useState<string | undefined>();
+  const [target, setTarget] = usePersistentState<string | undefined>("palboard.ui.path.target", undefined);
+  const [maxDepth, setMaxDepth] = usePersistentState("palboard.ui.path.maxDepth", 3);
+  const [maxResults, setMaxResults] = usePersistentState("palboard.ui.path.maxResults", 10);
+  const [ignoreGender, setIgnoreGender] = usePersistentState("palboard.ui.path.ignoreGender", false);
+  const [includeUnowned, setIncludeUnowned] = usePersistentState("palboard.ui.path.includeUnowned", false);
+  const [desiredPassives, setDesiredPassives] = usePersistentState<string[]>("palboard.ui.path.desiredPassives", []);
+  const [requiredPal, setRequiredPal] = usePersistentState<string | undefined>("palboard.ui.path.requiredPal", undefined);
 
   const ownedKeys = useMemo<Set<PalKey>>(
     () => new Set(pals.map((p) => p.palKey)),
@@ -81,16 +82,33 @@ export default function PathPage() {
     return [...ownedAtoms, ...extra];
   }, [includeUnowned, ownedAtoms, ownedKeys]);
   const [result, setResult] = useState<Result>(null);
-  const [isPending, startTransition] = useTransition();
+
+  // Signature of every input the search depends on. `computing` is derived by
+  // comparing this against the signature that produced the displayed result,
+  // so the loading state flips on synchronously the moment any input changes —
+  // including a re-search after results are already shown (where relying on
+  // `result === null` would let the stale results paint for a frame first).
+  const inputSig = [
+    target ?? "",
+    maxDepth,
+    maxResults,
+    ignoreGender,
+    includeUnowned,
+    requiredPal ?? "",
+    desiredPassives.join(","),
+    pals.length,
+    ownedKeys.size,
+  ].join("|");
+  const [computedSig, setComputedSig] = useState<string | null>(null);
 
   useEffect(() => {
     if (!target) {
       setResult(null);
+      setComputedSig(inputSig);
       return;
     }
-    setResult(null);
     const handle = setTimeout(() => {
-      startTransition(() => {
+      {
         // Enumerate up to (maxResults + 1) so we can detect the "capped" case
         // — or a much larger pool when a required pal or desired-passive
         // combo is set, since the paths that satisfy those filters aren't
@@ -173,7 +191,8 @@ export default function PathPage() {
           requiredPalMiss,
           desiredPassiveMiss,
         });
-      });
+        setComputedSig(inputSig);
+      }
     }, 0);
     return () => clearTimeout(handle);
   }, [
@@ -187,9 +206,10 @@ export default function PathPage() {
     includeUnowned,
     desiredPassives,
     pals,
+    inputSig,
   ]);
 
-  const computing = isPending || (target !== undefined && result === null);
+  const computing = target !== undefined && inputSig !== computedSig;
 
   const ownedById = useMemo(() => {
     const m = new Map<string, OwnedPal>();

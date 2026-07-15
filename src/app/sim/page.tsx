@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { PalPicker } from "@/components/PalPicker";
 import {
   combine,
@@ -16,17 +16,18 @@ import { PassivePicker } from "@/components/PassivePicker";
 import { PassiveBadge } from "@/components/PassiveBadge";
 import { palName, passiveName, useLang, useT } from "@/lib/i18n";
 import { passiveByName } from "@/lib/passives";
+import { usePersistentState } from "@/lib/persistent-state";
 
 export default function SimPage() {
   const t = useT();
   const { lang } = useLang();
-  const [aKey, setAKey] = useState<string | undefined>();
-  const [bKey, setBKey] = useState<string | undefined>();
-  const [aPassives, setAPassives] = useState<string[]>([]);
-  const [bPassives, setBPassives] = useState<string[]>([]);
-  const [partnerParent, setPartnerParent] = useState<string | undefined>();
-  const [partnerChild, setPartnerChild] = useState<string | undefined>();
-  const [reverseTarget, setReverseTarget] = useState<string | undefined>();
+  const [aKey, setAKey] = usePersistentState<string | undefined>("palboard.ui.sim.aKey", undefined);
+  const [bKey, setBKey] = usePersistentState<string | undefined>("palboard.ui.sim.bKey", undefined);
+  const [aPassives, setAPassives] = usePersistentState<string[]>("palboard.ui.sim.aPassives", []);
+  const [bPassives, setBPassives] = usePersistentState<string[]>("palboard.ui.sim.bPassives", []);
+  const [partnerParent, setPartnerParent] = usePersistentState<string | undefined>("palboard.ui.sim.partnerParent", undefined);
+  const [partnerChild, setPartnerChild] = usePersistentState<string | undefined>("palboard.ui.sim.partnerChild", undefined);
+  const [reverseTarget, setReverseTarget] = usePersistentState<string | undefined>("palboard.ui.sim.reverseTarget", undefined);
 
   const child = useMemo(() => (aKey && bKey ? combine(aKey, bKey) : null), [aKey, bKey]);
 

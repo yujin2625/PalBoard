@@ -23,6 +23,7 @@ import { mapRawPals, hasOwnerData, type ModExportPal } from "@/lib/mod-import";
 import { getMyUid, setMyUid, clearMyUid } from "@/lib/settings";
 import type { Gender, OwnedPal } from "@/lib/types";
 import { palName, useLang, useT } from "@/lib/i18n";
+import { usePersistentState } from "@/lib/persistent-state";
 
 const GENDERS: Gender[] = ["Male", "Female", "Unknown"];
 
@@ -41,8 +42,11 @@ export default function OwnedPalsPage() {
   );
   const { ask: askText, dialog: textPromptDialog } = useTextPrompt();
 
-  const [filter, setFilter] = useState("");
-  const [sortKey, setSortKey] = useState<"createdAt" | "name" | "level">("createdAt");
+  const [filter, setFilter] = usePersistentState("palboard.ui.owned.filter", "");
+  const [sortKey, setSortKey] = usePersistentState<"createdAt" | "name" | "level">(
+    "palboard.ui.owned.sortKey",
+    "createdAt",
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);

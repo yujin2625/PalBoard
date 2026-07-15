@@ -31,6 +31,7 @@ import {
   type BoardNode,
 } from "@/lib/board-store";
 import { resolveBoard } from "@/lib/board-compute";
+import { buildShareLink, decodeBoardCode, shareCodeFromHash } from "@/lib/board-share";
 import { Palette } from "@/components/board/Palette";
 import { OwnedNode } from "@/components/board/OwnedNode";
 import { ChildNode } from "@/components/board/ChildNode";
@@ -235,13 +236,12 @@ function BoardInner() {
     void view;
   }
 
-  // Export the currently active board to JSON file. The export embeds
-  // snapshots of any owned pals the board references so that someone
-  // importing it without the same local data still sees populated nodes.
-  function handleExportBoard() {
-    if (!active) return;
-    // Use the latest in-memory board state (nodes/edges from React Flow).
-    const liveBoard = {
+  // The active board with the latest in-memory node/edge state (React Flow)
+  // folded back in. Shared by every export/share path so they all serialize
+  // exactly what's on screen, not the last-persisted snapshot.
+  const buildLiveBoard = useCallback(() => {
+    if (!active) return null;
+    return {
       ...active,
       nodes: nodes.map((n) => {
         if (n.type === "owned") {
@@ -263,30 +263,92 @@ function BoardInner() {
       }),
       edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
     };
+  }, [active, nodes, edges]);
+
+  // Export the currently active board to JSON file. The export embeds
+  // snapshots of any owned pals the board references so that someone
+  // importing it without the same local data still sees populated nodes.
+  function handleExportBoard() {
+    const liveBoard = buildLiveBoard();
+    if (!liveBoard) return;
     const text = exportBoardJson(liveBoard, ownedById as unknown as Map<string, unknown>);
     const blob = new Blob([text], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    const safe = active.name.replace(/[^\w\-가-힣]+/g, "_").slice(0, 32) || "board";
+    const safe = liveBoard.name.replace(/[^\w\-가-힣]+/g, "_").slice(0, 32) || "board";
     a.download = `palboard-${safe}-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   }
 
+  // Bring a decoded/parsed board into the local store, injecting any embedded
+  // owned-pal snapshots that aren't present locally so its nodes resolve.
+  const importParsed = useCallback(
+    (parsed: { board: Parameters<typeof importBoard>[0]; ownedPalSnapshots: Record<string, unknown> }) => {
+      const incoming = Object.values(parsed.ownedPalSnapshots) as OwnedPal[];
+      const added = incoming.length > 0 ? bulkAdd(incoming) : 0;
+      importBoard(parsed.board);
+      return added;
+    },
+    [bulkAdd, importBoard],
+  );
+
   async function handleImportBoard(file: File) {
     const text = await file.text();
     try {
-      const { board, ownedPalSnapshots } = parseBoardJson(text);
-      // Inject any referenced owned pals that aren't already present locally
-      // so the imported board's nodes resolve to real data.
-      const incoming = Object.values(ownedPalSnapshots) as OwnedPal[];
-      const added = incoming.length > 0 ? bulkAdd(incoming) : 0;
-      importBoard(board);
+      const added = importParsed(parseBoardJson(text));
       alert(t("board.import.success", { p: added }));
     } catch {
       alert(t("board.import.error"));
     }
   }
+
+  // Build a share link for the on-screen board and copy it to the clipboard.
+  // Falls back to an editable prompt when the clipboard API is unavailable
+  // (e.g. a non-secure context), so the user can still copy it by hand.
+  async function handleShareBoard() {
+    const liveBoard = buildLiveBoard();
+    if (!liveBoard) return;
+    try {
+      const link = await buildShareLink(liveBoard, ownedById as unknown as Map<string, unknown>);
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(link);
+        copied = true;
+      } catch {
+        copied = false;
+      }
+      if (copied) alert(t("board.share.copied"));
+      else await askText(t("board.share.copyManual"), link);
+    } catch {
+      alert(t("board.share.error"));
+    }
+  }
+
+  async function handleImportFromLink() {
+    const input = await askText(t("board.share.importPrompt"));
+    if (!input) return;
+    try {
+      const added = importParsed(await decodeBoardCode(input));
+      alert(t("board.import.success", { p: added }));
+    } catch {
+      alert(t("board.share.decodeError"));
+    }
+  }
+
+  // If the page was opened from a share link (#b=...), import that board once
+  // the store is ready, then strip the hash so a refresh doesn't re-import.
+  const hashImportedRef = useRef(false);
+  useEffect(() => {
+    if (!loaded || hashImportedRef.current) return;
+    hashImportedRef.current = true;
+    const code = shareCodeFromHash();
+    if (!code) return;
+    window.history.replaceState(null, "", window.location.href.replace(/#.*$/, ""));
+    decodeBoardCode(code)
+      .then((parsed) => alert(t("board.import.success", { p: importParsed(parsed) })))
+      .catch(() => alert(t("board.share.decodeError")));
+  }, [loaded, importParsed, t]);
 
   // Resolve children every render with current edges/nodes.
   const resolutions = useMemo(() => {
@@ -449,6 +511,12 @@ function BoardInner() {
             {t("board.clear")}
           </button>
           <button
+            onClick={handleShareBoard}
+            className="px-2 py-1.5 text-xs rounded-md bg-chillet-500 text-white hover:bg-chillet-600"
+          >
+            {t("board.share")}
+          </button>
+          <button
             onClick={handleExportBoard}
             className="px-2 py-1.5 text-xs rounded-md border border-chillet-200 dark:border-chillet-700/70 hover:bg-chillet-100 dark:hover:bg-chillet-800/50"
           >
@@ -459,6 +527,12 @@ function BoardInner() {
             className="px-2 py-1.5 text-xs rounded-md border border-chillet-200 dark:border-chillet-700/70 hover:bg-chillet-100 dark:hover:bg-chillet-800/50"
           >
             {t("board.import")}
+          </button>
+          <button
+            onClick={handleImportFromLink}
+            className="px-2 py-1.5 text-xs rounded-md border border-chillet-200 dark:border-chillet-700/70 hover:bg-chillet-100 dark:hover:bg-chillet-800/50"
+          >
+            {t("board.share.import")}
           </button>
           <input
             ref={importInputRef}
