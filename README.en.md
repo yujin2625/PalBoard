@@ -203,4 +203,6 @@ The data version and fetch date can be checked in [src/data/meta.json](src/data/
 
 This project's code is freely available under the MIT license. The external data/assets listed above are each subject to their own license.
 
-Palworld is a registered trademark of Pocketpair Inc. This project is an unofficial fan tool.
+Palworld is a registered trademark of Pocketpair Inc. This project is an unofficial fan tool and is not affiliated with Pocketpair Inc.
+
+Pal icons and other game images in `public/pals` and `public/passives` are © Pocketpair Inc. and are used for identification and reference only. They will be removed promptly at the rights holder's request.

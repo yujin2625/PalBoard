@@ -208,4 +208,6 @@ scripts/                  # 데이터 갱신 + parse-save.mjs (세이브 파서 
 
 이 프로젝트의 코드는 MIT 라이선스로 자유롭게 사용 가능합니다. 다만 위 표의 외부 데이터/자산은 각자의 라이선스를 따릅니다.
 
-Palworld는 Pocketpair Inc.의 등록 상표입니다. 이 프로젝트는 비공식 팬 도구입니다.
+Palworld는 Pocketpair Inc.의 등록 상표입니다. 이 프로젝트는 비공식 팬 도구이며 Pocketpair Inc.와 관련이 없습니다.
+
+`public/pals`, `public/passives`의 팰 아이콘 등 게임 이미지의 저작권은 Pocketpair Inc.에 있으며, 식별·참고 목적으로만 사용합니다. 권리자의 요청이 있으면 즉시 삭제하겠습니다.
