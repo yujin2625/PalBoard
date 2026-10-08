@@ -201,7 +201,7 @@ The data version and fetch date can be checked in [src/data/meta.json](src/data/
 
 ## 📜 License
 
-This project's code is freely available under the MIT license. The external data/assets listed above are each subject to their own license.
+This project's code is licensed under [PolyForm Noncommercial 1.0.0](LICENSE.md). Personal, educational and other noncommercial use, modification and redistribution are allowed, but **commercial use is not**; redistributions must keep the `Required Notice` line and the license terms. The external data/assets listed above are not covered by this license and are each subject to their own license.
 
 Palworld is a registered trademark of Pocketpair Inc. This project is an unofficial fan tool and is not affiliated with Pocketpair Inc.
 
